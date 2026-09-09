@@ -1,4 +1,6 @@
 import type { StoryState } from "../story/storyState";
+import type { Locale } from "../story/localeState";
+import { localizedBeat, localizedNode, localizedNextLabel, localizedTruthfulnessNotice, localizedWorldTitle, MEANING_COPY, UI_COPY } from "../i18n";
 import type { StoryWorldDefinition } from "../world/world.schema";
 import { createAccessibleStoryView } from "./AccessibleStoryView";
 
@@ -13,6 +15,7 @@ export interface OverlayActions {
   readonly selectNode: (nodeId: string) => void;
   readonly setStoryListOpen: (open: boolean) => void;
   readonly setAboutOpen: (open: boolean) => void;
+  readonly setLocale: (locale: Locale) => void;
 }
 
 type NodeProjection = { x: number; y: number; depth: number; visible: boolean };
@@ -26,48 +29,53 @@ export class StoryOverlay {
   private readonly storyList: ReturnType<typeof createAccessibleStoryView>;
   private currentState?: StoryState;
   private projectNode?: (nodeId: string) => NodeProjection;
+  private locale: Locale = "en";
+  private readonly fallbackMessage?: { readonly en: string; readonly th: string };
 
-  public constructor(private readonly world: StoryWorldDefinition, private readonly actions: OverlayActions, fallbackMessage?: string) {
+  public constructor(private readonly world: StoryWorldDefinition, private readonly actions: OverlayActions, fallbackMessage?: { readonly en: string; readonly th: string }) {
+    this.fallbackMessage = fallbackMessage;
     this.element.className = "story-overlay";
     this.element.innerHTML = `
       <header class="story-header">
-        <a class="wordmark" href="./" aria-label="Restart MSxAI 3D Story World">MSxAI <span>Story World</span></a>
-        <p class="free-mode-cue" data-copy="free-mode" hidden>Free Explore</p>
+        <a class="wordmark" href="./" data-copy="wordmark">MSxAI <span>Story World</span></a>
+        <p class="free-mode-cue" data-copy="free-mode" hidden></p>
         <div class="story-header__actions">
-          <button class="quiet-button" type="button" data-action="show-about">About / Meaning</button>
-          <button class="quiet-button" type="button" data-action="story-list">Story List</button>
+          <button class="quiet-button" type="button" data-action="show-about" data-copy="show-about"></button>
+          <button class="quiet-button" type="button" data-action="story-list" data-copy="story-list"></button>
+          <div class="language-switch" role="group" data-copy-label="language">
+            <button type="button" data-locale="en" aria-label="English">EN</button>
+            <span aria-hidden="true">|</span>
+            <button type="button" data-locale="th" aria-label="ภาษาไทย">TH</button>
+          </div>
         </div>
       </header>
       <section class="story-copy" aria-live="polite">
         <p class="eyebrow" data-copy="mode"></p>
         <h1 data-copy="title"></h1>
-        <p class="thai-copy" data-copy="thai-title"></p>
         <div data-copy="lines"></div>
-        <p class="thai-copy" data-copy="thai-line"></p>
       </section>
-      <nav class="story-controls" aria-label="Story controls">
-        <button class="quiet-button" type="button" data-action="back">Back</button>
-        <button class="primary-button" type="button" data-action="next">Next</button>
-        <button class="quiet-button" type="button" data-action="explore">Explore Freely</button>
-        <button class="quiet-button" type="button" data-action="reset">Reset View</button>
-        <button class="quiet-button" type="button" data-action="human">Return to Human</button>
+      <nav class="story-controls" data-copy-label="storyControls">
+        <button class="quiet-button" type="button" data-action="back" data-copy="back"></button>
+        <button class="primary-button" type="button" data-action="next" data-copy="next"></button>
+        <button class="quiet-button" type="button" data-action="explore" data-copy="explore"></button>
+        <button class="quiet-button" type="button" data-action="reset" data-copy="reset"></button>
+        <button class="quiet-button" type="button" data-action="human" data-copy="human"></button>
       </nav>
-      <p class="truth-cue">Conceptual relationships — not model cognition.</p>
-      <div class="node-labels" aria-label="Concept anchors"></div>
+      <p class="truth-cue" data-copy="truth-cue"></p>
+      <div class="node-labels" data-copy-label="conceptAnchors"></div>
     `;
 
     this.entry.className = "entry-card";
     this.entry.dataset.testid = "entry-card";
     this.entry.innerHTML = `
-      <p class="eyebrow">MSxAI 3D Story World</p>
-      <h1>AI is becoming more capable.<br />But who holds the intention?</h1>
-      <p class="thai-copy">AI มีความสามารถมากขึ้น แล้วใครคือผู้ถือเจตนา?</p>
-      <p class="entry-card__boundary">${world.truthfulnessNotice}</p>
+      <p class="eyebrow" data-copy="entry-eyebrow"></p>
+      <h1 data-copy="entry-title"></h1>
+      <p class="entry-card__boundary" data-copy="entry-boundary"></p>
       <div class="entry-card__actions">
-        <button class="primary-button" type="button" data-action="begin">Begin the Story</button>
-        <button class="quiet-button" type="button" data-action="free">Explore Freely</button>
+        <button class="primary-button" type="button" data-action="begin" data-copy="begin"></button>
+        <button class="quiet-button" type="button" data-action="free" data-copy="free"></button>
       </div>
-      ${fallbackMessage ? `<p class="fallback-message" role="status">${fallbackMessage}</p>` : ""}
+      <p class="fallback-message" data-copy="fallback" role="status" hidden></p>
     `;
     this.element.append(this.entry);
 
@@ -78,15 +86,15 @@ export class StoryOverlay {
     this.about.className = "about-dialog";
     this.about.setAttribute("role", "dialog");
     this.about.setAttribute("aria-modal", "true");
-    this.about.setAttribute("aria-label", "About this conceptual world");
+    this.about.setAttribute("aria-label", UI_COPY.en.showAbout);
     this.about.hidden = true;
     this.about.innerHTML = `
       <div class="about-dialog__panel">
-        <button class="icon-button" type="button" data-action="close-about" aria-label="Close About">×</button>
-        <p class="eyebrow">Meaning</p>
-        <h2>An explorable conceptual world</h2>
-        <p>${world.truthfulnessNotice}</p>
-        <p>The ocean, anchors, ambient points, and connections are conceptual editorial structure. Ambient points carry no concepts. Exploration does not perform work, send a request, or change MSS.</p>
+        <button class="icon-button" type="button" data-action="close-about">×</button>
+        <p class="eyebrow" data-copy="meaning"></p>
+        <h2 data-copy="meaning-title"></h2>
+        <p data-copy="meaning-boundary"></p>
+        <p data-copy="meaning-editorial"></p>
       </div>
     `;
     this.element.append(this.about);
@@ -108,42 +116,56 @@ export class StoryOverlay {
       button.className = "node-label";
       button.type = "button";
       button.dataset.nodeId = node.id;
-      button.innerHTML = `<strong>${node.label}</strong>`;
+      button.innerHTML = "<strong></strong>";
       button.addEventListener("click", () => actions.selectNode(node.id));
       labels.append(button);
       this.labels.set(node.id, button);
     });
 
     this.bindActions();
+    this.renderStaticCopy();
   }
 
   public setProjector(projectNode: (nodeId: string) => NodeProjection): void {
     this.projectNode = projectNode;
   }
 
+  public setLocale(locale: Locale): void {
+    this.locale = locale;
+    this.renderStaticCopy();
+    if (this.currentState) this.render(this.currentState);
+  }
+
   public render(state: StoryState): void {
     this.currentState = state;
+    this.renderStaticCopy();
     const beat = this.world.beats[state.beatIndex];
-    this.element.querySelector<HTMLElement>('[data-copy="mode"]')!.textContent = state.mode === "guided" ? `Guided Story · ${beat.order + 1} / ${this.world.beats.length}` : "Free Explore";
-    this.element.querySelector<HTMLElement>('[data-copy="title"]')!.textContent = beat.title;
-    this.element.querySelector<HTMLElement>('[data-copy="thai-title"]')!.textContent = beat.thaiTitle;
-    this.element.querySelector<HTMLElement>('[data-copy="lines"]')!.innerHTML = beat.lines.map((line) => `<p>${line}</p>`).join("");
-    this.element.querySelector<HTMLElement>('[data-copy="thai-line"]')!.textContent = beat.thaiLine ?? "";
+    const localized = localizedBeat(beat, this.locale);
+    this.element.querySelector<HTMLElement>('[data-copy="mode"]')!.textContent = state.mode === "guided"
+      ? `${UI_COPY[this.locale].guidedStory} · ${beat.order + 1} / ${this.world.beats.length}`
+      : UI_COPY[this.locale].freeExplore;
+    this.element.querySelector<HTMLElement>('[data-copy="title"]')!.textContent = localized.title;
+    const lines = this.element.querySelector<HTMLElement>('[data-copy="lines"]')!;
+    lines.replaceChildren(...localized.lines.map((line) => {
+      const paragraph = document.createElement("p");
+      paragraph.textContent = line;
+      return paragraph;
+    }));
     this.entry.hidden = !state.entryOpen;
     this.element.querySelector<HTMLElement>(".story-copy")!.hidden = state.entryOpen || state.mode === "free";
     this.element.querySelector<HTMLElement>('[data-copy="free-mode"]')!.hidden = state.mode !== "free" || state.entryOpen;
     this.element.querySelector<HTMLElement>(".story-controls")!.hidden = state.entryOpen;
     this.about.hidden = !state.aboutOpen;
     this.storyList.element.hidden = !state.storyListOpen;
-    this.storyList.render(state);
+    this.storyList.render(state, this.locale);
 
     const next = this.element.querySelector<HTMLButtonElement>('[data-action="next"]')!;
     const back = this.element.querySelector<HTMLButtonElement>('[data-action="back"]')!;
-    next.textContent = state.mode === "free" ? "Resume Story" : beat.nextLabel ?? "Story Complete";
+    next.textContent = state.mode === "free" ? UI_COPY[this.locale].resumeStory : localizedNextLabel(beat, this.locale) ?? UI_COPY[this.locale].storyComplete;
     next.disabled = state.mode === "guided" && state.beatIndex === this.world.beats.length - 1;
     back.disabled = state.mode === "free" || state.beatIndex === 0;
     const explore = this.element.querySelector<HTMLButtonElement>('[data-action="explore"]')!;
-    explore.textContent = "Explore Freely";
+    explore.textContent = UI_COPY[this.locale].exploreFreely;
     explore.hidden = state.mode === "free";
     this.renderDetail(state.selectedNodeId);
     this.refreshLabels();
@@ -173,6 +195,50 @@ export class StoryOverlay {
     });
   }
 
+  private renderStaticCopy(): void {
+    const copy = UI_COPY[this.locale];
+    const opening = localizedBeat(this.world.beats[0], this.locale);
+    document.title = copy.pageTitle;
+    document.documentElement.lang = this.locale;
+    this.element.querySelector<HTMLElement>('[data-copy="wordmark"]')!.innerHTML = `MSxAI <span>${copy.storyWorld}</span>`;
+    this.element.querySelector<HTMLElement>('[data-copy="wordmark"]')!.setAttribute("aria-label", copy.restart);
+    this.element.querySelector<HTMLElement>('[data-copy="free-mode"]')!.textContent = copy.freeExplore;
+    this.element.querySelector<HTMLElement>('[data-copy="show-about"]')!.textContent = copy.showAbout;
+    this.element.querySelector<HTMLElement>('[data-copy="story-list"]')!.textContent = copy.storyList;
+    this.element.querySelector<HTMLElement>('[data-copy="back"]')!.textContent = copy.back;
+    this.element.querySelector<HTMLElement>('[data-copy="next"]')!.textContent = copy.next;
+    this.element.querySelector<HTMLElement>('[data-copy="explore"]')!.textContent = copy.exploreFreely;
+    this.element.querySelector<HTMLElement>('[data-copy="reset"]')!.textContent = copy.resetView;
+    this.element.querySelector<HTMLElement>('[data-copy="human"]')!.textContent = copy.returnToHuman;
+    this.element.querySelector<HTMLElement>('[data-copy="truth-cue"]')!.textContent = copy.conceptualRelationships;
+    this.element.querySelector<HTMLElement>('[data-copy="entry-eyebrow"]')!.textContent = localizedWorldTitle(this.locale);
+    this.element.querySelector<HTMLElement>('[data-copy="entry-title"]')!.textContent = opening.lines.join(" ");
+    this.element.querySelector<HTMLElement>('[data-copy="entry-boundary"]')!.textContent = localizedTruthfulnessNotice(this.world, this.locale);
+    this.element.querySelector<HTMLElement>('[data-copy="begin"]')!.textContent = copy.beginStory;
+    this.element.querySelector<HTMLElement>('[data-copy="free"]')!.textContent = copy.exploreFreely;
+    const fallback = this.element.querySelector<HTMLElement>('[data-copy="fallback"]')!;
+    fallback.textContent = this.fallbackMessage?.[this.locale] ?? "";
+    fallback.hidden = !this.fallbackMessage;
+    this.about.setAttribute("aria-label", copy.showAbout);
+    this.element.querySelector<HTMLElement>('[data-copy="meaning"]')!.textContent = copy.meaning;
+    this.element.querySelector<HTMLElement>('[data-copy="meaning-title"]')!.textContent = MEANING_COPY[this.locale].title;
+    this.element.querySelector<HTMLElement>('[data-copy="meaning-boundary"]')!.textContent = localizedTruthfulnessNotice(this.world, this.locale);
+    this.element.querySelector<HTMLElement>('[data-copy="meaning-editorial"]')!.textContent = MEANING_COPY[this.locale].editorialParagraph;
+    this.element.querySelector<HTMLElement>('[data-copy-label="storyControls"]')!.setAttribute("aria-label", copy.storyControls);
+    this.element.querySelector<HTMLElement>('[data-copy-label="conceptAnchors"]')!.setAttribute("aria-label", copy.conceptAnchors);
+    this.element.querySelector<HTMLElement>('[data-copy-label="language"]')!.setAttribute("aria-label", copy.language);
+    this.element.querySelector<HTMLButtonElement>('[data-action="close-about"]')!.setAttribute("aria-label", copy.closeAbout);
+    this.element.querySelectorAll<HTMLButtonElement>("[data-locale]").forEach((button) => {
+      const active = button.dataset.locale === this.locale;
+      button.setAttribute("aria-pressed", String(active));
+      button.classList.toggle("is-active", active);
+    });
+    this.labels.forEach((button, id) => {
+      const node = this.world.nodes.find((entry) => entry.id === id);
+      if (node) button.querySelector("strong")!.textContent = localizedNode(node, this.locale).label;
+    });
+  }
+
   private renderDetail(selectedNodeId?: string): void {
     const node = this.world.nodes.find((entry) => entry.id === selectedNodeId);
     const beat = this.currentState ? this.world.beats[this.currentState.beatIndex] : undefined;
@@ -182,13 +248,22 @@ export class StoryOverlay {
       return;
     }
     this.detail.hidden = false;
+    const localized = localizedNode(node, this.locale);
     this.detail.innerHTML = `
-      <p class="eyebrow">Concept anchor</p>
-      <h2>${node.label}</h2>
-      <p class="thai-copy">${node.thaiLabel}</p>
-      <p>${node.summary}</p>
-      <ul>${node.detail.map((line) => `<li>${line}</li>`).join("")}</ul>
+      <p class="eyebrow" data-copy="detail-eyebrow"></p>
+      <h2 data-copy="detail-title"></h2>
+      <p data-copy="detail-summary"></p>
+      <ul data-copy="detail-lines"></ul>
     `;
+    this.detail.querySelector<HTMLElement>('[data-copy="detail-eyebrow"]')!.textContent = UI_COPY[this.locale].conceptAnchor;
+    this.detail.querySelector<HTMLElement>('[data-copy="detail-title"]')!.textContent = localized.label;
+    this.detail.querySelector<HTMLElement>('[data-copy="detail-summary"]')!.textContent = localized.summary;
+    const lines = this.detail.querySelector<HTMLUListElement>('[data-copy="detail-lines"]')!;
+    localized.detail.forEach((line) => {
+      const item = document.createElement("li");
+      item.textContent = line;
+      lines.append(item);
+    });
   }
 
   private bindActions(): void {
@@ -205,5 +280,11 @@ export class StoryOverlay {
     listen("story-list", () => this.actions.setStoryListOpen(true));
     listen("show-about", () => this.actions.setAboutOpen(true));
     listen("close-about", () => this.actions.setAboutOpen(false));
+    this.element.querySelectorAll<HTMLButtonElement>("[data-locale]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const locale = button.dataset.locale;
+        if (locale === "en" || locale === "th") this.actions.setLocale(locale);
+      });
+    });
   }
 }

@@ -51,6 +51,10 @@ button { color: inherit; }
 .free-mode-cue { position: absolute; top: 2.2rem; left: 0; margin: 0; color: #83d7ec; font-size: .68rem; font-weight: 720; letter-spacing: .13em; text-transform: uppercase; }
 .story-header__actions, .story-controls, .entry-card__actions, .story-list__actions { display: flex; flex-wrap: wrap; gap: .55rem; }
 
+.language-switch { display: inline-flex; align-items: center; gap: .12rem; flex-shrink: 0; color: #b8dce7; font-size: .72rem; font-weight: 720; letter-spacing: .08em; }
+.language-switch button { border: 1px solid transparent; border-radius: .35rem; padding: .28rem .34rem; color: inherit; background: transparent; cursor: pointer; }
+.language-switch button:hover, .language-switch button:focus-visible, .language-switch button.is-active { border-color: rgba(181, 240, 255, .62); background: rgba(28, 82, 111, .72); color: #effcff; }
+
 .quiet-button, .primary-button, .icon-button {
   border: 1px solid rgba(186, 237, 250, .28);
   border-radius: 999px;

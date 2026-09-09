@@ -26,6 +26,10 @@ npm run build
 
 The browser test stores deterministic review images in `artifacts/screenshots/`.
 
+The Story World supports a compact EN / TH language switcher. English is the default;
+all localized content is deterministic and defined in the repository, with no translation
+API, AI translation, or runtime network dependency.
+
 ## Deployment
 
 Create a production build with:

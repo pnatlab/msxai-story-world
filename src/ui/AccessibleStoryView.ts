@@ -1,8 +1,13 @@
 import type { StoryState } from "../story/storyState";
+import type { Locale } from "../story/localeState";
+import { localizedNode, UI_COPY } from "../i18n";
 import type { StoryWorldDefinition } from "../world/world.schema";
 
-export function storyListEntries(world: StoryWorldDefinition): readonly { id: string; label: string; summary: string }[] {
-  return world.nodes.map(({ id, label, summary }) => ({ id, label, summary }));
+export function storyListEntries(world: StoryWorldDefinition, locale: Locale = "en"): readonly { id: string; label: string; summary: string }[] {
+  return world.nodes.map((node) => {
+    const localized = localizedNode(node, locale);
+    return { id: node.id, label: localized.label, summary: localized.summary };
+  });
 }
 
 export function createAccessibleStoryView(
@@ -14,30 +19,30 @@ export function createAccessibleStoryView(
     returnToHuman: () => void;
     close: () => void;
   },
-): { element: HTMLElement; render: (state: StoryState) => void } {
+): { element: HTMLElement; render: (state: StoryState, locale: Locale) => void } {
   const element = document.createElement("section");
   element.className = "story-list";
   element.dataset.testid = "story-list";
-  element.setAttribute("aria-label", "Accessible Story List");
+  element.setAttribute("aria-label", UI_COPY.en.storyList);
   element.innerHTML = `
     <div class="story-list__header">
       <div>
-        <p class="eyebrow">Accessible concept map</p>
-        <h2>Story List</h2>
-        <p>Use the same conceptual anchors, relationship, and story order without the spatial scene.</p>
+        <p class="eyebrow" data-copy="list-eyebrow"></p>
+        <h2 data-copy="list-title"></h2>
+        <p data-copy="list-description"></p>
       </div>
-      <button class="icon-button" type="button" data-action="close-list" aria-label="Return to Story View">×</button>
+      <button class="icon-button" type="button" data-action="close-list">×</button>
     </div>
     <ol class="story-list__beats"></ol>
-    <section class="story-list__relationship" aria-label="Declared relationships">
-      <p class="eyebrow">Declared relationships</p>
+    <section class="story-list__relationship">
+      <p class="eyebrow" data-copy="relationship-title"></p>
       <ul class="story-list__relationships"></ul>
-      <p>Conceptual relationships — not model cognition.</p>
+      <p data-copy="relationship-note"></p>
     </section>
     <div class="story-list__actions">
-      <button type="button" class="quiet-button" data-action="list-back">Back</button>
-      <button type="button" class="primary-button" data-action="list-next">Next</button>
-      <button type="button" class="quiet-button" data-action="list-human">Return to Human</button>
+      <button type="button" class="quiet-button" data-action="list-back"></button>
+      <button type="button" class="primary-button" data-action="list-next"></button>
+      <button type="button" class="quiet-button" data-action="list-human"></button>
     </div>
   `;
 
@@ -54,8 +59,7 @@ export function createAccessibleStoryView(
     item.dataset.nodeId = node.id;
     const button = document.createElement("button");
     button.type = "button";
-      const sourceNode = world.nodes.find((entry) => entry.id === node.id);
-      button.innerHTML = `<span>${node.label}</span><small>${sourceNode?.thaiLabel ?? ""}</small><em>${node.summary}</em>`;
+    button.innerHTML = `<span></span><small></small><em></em>`;
     button.addEventListener("click", () => actions.selectNode(node.id));
     item.append(button);
     list.append(item);
@@ -65,13 +69,35 @@ export function createAccessibleStoryView(
   if (!relationships) throw new Error("Story List relationship region is incomplete.");
   world.relationships.forEach((relationship) => {
     const item = document.createElement("li");
-    item.textContent = relationship.label;
+    item.dataset.relationshipId = relationship.id;
     relationships.append(item);
   });
 
   return {
     element,
-    render(state: StoryState): void {
+    render(state: StoryState, locale: Locale): void {
+      const copy = UI_COPY[locale];
+      element.setAttribute("aria-label", copy.storyList);
+      element.querySelector<HTMLElement>('[data-copy="list-eyebrow"]')!.textContent = copy.accessibleConceptMap;
+      element.querySelector<HTMLElement>('[data-copy="list-title"]')!.textContent = copy.storyList;
+      element.querySelector<HTMLElement>('[data-copy="list-description"]')!.textContent = copy.useSameConceptualMap;
+      element.querySelector<HTMLElement>('[data-copy="relationship-title"]')!.textContent = copy.declaredRelationships;
+      element.querySelector<HTMLElement>('[data-copy="relationship-note"]')!.textContent = copy.conceptualRelationships;
+      element.querySelector<HTMLButtonElement>('[data-action="close-list"]')!.setAttribute("aria-label", copy.returnToStoryView);
+      element.querySelector<HTMLButtonElement>('[data-action="list-back"]')!.textContent = copy.back;
+      element.querySelector<HTMLButtonElement>('[data-action="list-next"]')!.textContent = copy.next;
+      element.querySelector<HTMLButtonElement>('[data-action="list-human"]')!.textContent = copy.returnToHuman;
+      storyListEntries(world, locale).forEach((node) => {
+        const button = element.querySelector<HTMLButtonElement>(`.story-list__node[data-node-id="${node.id}"] button`);
+        if (!button) return;
+        button.querySelector("span")!.textContent = node.label;
+        button.querySelector("small")!.textContent = "";
+        button.querySelector("em")!.textContent = node.summary;
+      });
+      world.relationships.forEach((relationship) => {
+        const item = element.querySelector<HTMLElement>(`.story-list__relationships [data-relationship-id="${relationship.id}"]`);
+        if (item) item.textContent = locale === "en" ? relationship.label : relationship.thaiLabel;
+      });
       element.querySelectorAll<HTMLElement>(".story-list__node").forEach((item) => {
         item.classList.toggle("is-selected", item.dataset.nodeId === state.selectedNodeId);
       });

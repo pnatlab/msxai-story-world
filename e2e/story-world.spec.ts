@@ -104,4 +104,45 @@ test.describe("MSxAI Story World Slice 1", () => {
     await expect(page.getByText("3D Story View is unavailable", { exact: false })).toBeVisible();
     await page.screenshot({ path: screenshotPath("G-mobile-list-fallback"), animations: "disabled" });
   });
+
+  test("switches EN and TH presentation without changing story state", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    await expect(page.locator('[data-locale="en"]')).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: "Begin the Story" }).click();
+    await page.waitForTimeout(1100);
+    const before = await inspect(page);
+    await expect(page.locator(".story-copy h1")).toHaveText("HUMAN");
+
+    await page.getByRole("button", { name: "ภาษาไทย" }).click();
+    await expect(page.locator('[data-locale="th"]')).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".story-copy h1")).toHaveText("ผู้ถือเจตนา");
+    await expect(page.getByRole("button", { name: "รายการเรื่องเล่า" })).toBeVisible();
+    const afterThai = await inspect(page);
+    expect(afterThai).toMatchObject({ activeStoryBeat: before?.activeStoryBeat, selectedNode: before?.selectedNode });
+    expect(afterThai?.cameraPosition).toEqual(before?.cameraPosition);
+
+    await page.getByRole("button", { name: "เกี่ยวกับ / ความหมาย" }).click();
+    const meaning = page.getByRole("dialog");
+    await expect(meaning.locator("h2")).toHaveText("โลกเชิงแนวคิดที่สามารถสำรวจได้");
+    await expect(meaning).toContainText("ไม่ได้เปลี่ยนแปลง MSS");
+    await meaning.getByRole("button", { name: "ปิดเกี่ยวกับ" }).click();
+    await page.locator('[data-action="explore"]').click();
+    await page.locator('.node-label[data-node-id="msxai"]').click();
+    await expect(page.locator(".concept-detail")).toContainText("เจตนามาก่อน");
+
+    await page.getByRole("button", { name: "รายการเรื่องเล่า" }).click();
+    await expect(page.getByTestId("story-list")).toBeVisible();
+    await expect(page.getByTestId("story-list").getByText("ความสัมพันธ์เชิงแนวคิด", { exact: false })).toBeVisible();
+    await page.getByRole("button", { name: "English" }).click();
+    await expect(page.getByRole("button", { name: "Story List" })).toBeVisible();
+    await expect(page.getByTestId("story-list").getByText("Conceptual relationships", { exact: false })).toBeVisible();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator(".language-switch")).toBeVisible();
+    const languageBox = await page.locator(".language-switch").boundingBox();
+    const storyListBox = await page.getByRole("button", { name: "Story List" }).boundingBox();
+    expect(languageBox && storyListBox).toBeTruthy();
+    expect(languageBox!.x).toBeGreaterThanOrEqual(storyListBox!.x + storyListBox!.width - 1);
+  });
 });

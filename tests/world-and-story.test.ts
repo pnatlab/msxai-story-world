@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { resolveTransitionDuration } from "../src/scene/CameraDirector";
 import { AMBIENT_FIELD_V0_1 } from "../src/scene/ambientField";
+import { localizedBeat, localizedNode, localizedTruthfulnessNotice, MEANING_COPY, UI_COPY } from "../src/i18n";
 import { StoryController } from "../src/story/StoryController";
+import { DEFAULT_LOCALE, LocaleController } from "../src/story/localeState";
 import { storyListEntries } from "../src/ui/AccessibleStoryView";
 import { STORY_WORLD_V0_1 } from "../src/world/world.v0.1";
 import { validateWorldDefinition } from "../src/world/world.schema";
@@ -107,5 +109,44 @@ describe("MSxAI Story World v0.1", () => {
     const positions = STORY_WORLD_V0_1.nodes.map((node) => node.position.join(","));
     expect(new Set(positions).size).toBe(STORY_WORLD_V0_1.nodes.length);
     expect(new Set(STORY_WORLD_V0_1.nodes.map((node) => node.position[2])).size).toBeGreaterThanOrEqual(6);
+  });
+
+  it("defaults to English and switches deterministic visible copy", () => {
+    const locale = new LocaleController();
+    expect(locale.getLocale()).toBe(DEFAULT_LOCALE);
+    expect(UI_COPY[locale.getLocale()].storyList).toBe("Story List");
+    expect(STORY_WORLD_V0_1.nodes.slice(0, 3).map((node) => node.id)).toEqual(["human", "intention", "msxai"]);
+    expect(localizedBeat(STORY_WORLD_V0_1.beats[1], locale.getLocale()).title).toBe("HUMAN");
+
+    locale.setLocale("th");
+    expect(UI_COPY[locale.getLocale()].storyList).toBe("รายการเรื่องเล่า");
+    expect(localizedBeat(STORY_WORLD_V0_1.beats[1], locale.getLocale()).lines[0]).toBe("มนุษย์ยังคงเป็นผู้ถือเจตนา");
+    expect(localizedNode(STORY_WORLD_V0_1.nodes[2], locale.getLocale()).detail[0]).toBe("เจตนามาก่อน");
+
+    locale.setLocale("en");
+    expect(localizedBeat(STORY_WORLD_V0_1.beats[1], locale.getLocale()).lines[0]).toBe("The human remains the intention holder.");
+  });
+
+  it("keeps story step, mode, and selected concept unchanged while switching locale", () => {
+    const controller = new StoryController(STORY_WORLD_V0_1);
+    const locale = new LocaleController();
+    controller.beginStory();
+    controller.next();
+    const guidedBefore = controller.getState();
+    locale.setLocale("th");
+    expect(controller.getState()).toEqual(guidedBefore);
+
+    controller.exploreFreely();
+    controller.selectNode("msxai");
+    const freeBefore = controller.getState();
+    locale.setLocale("en");
+    expect(controller.getState()).toEqual(freeBefore);
+  });
+
+  it("keeps the truthfulness boundary in both locales", () => {
+    expect(localizedTruthfulnessNotice(STORY_WORLD_V0_1, "en")).toContain("hidden AI cognition");
+    expect(localizedTruthfulnessNotice(STORY_WORLD_V0_1, "th")).toContain("กระบวนการรับรู้ภายในที่ซ่อนอยู่ของ AI");
+    expect(MEANING_COPY.en.editorialParagraph).toContain("does not perform work");
+    expect(MEANING_COPY.th.editorialParagraph).toContain("ไม่ได้เปลี่ยนแปลง MSS");
   });
 });

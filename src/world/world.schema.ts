@@ -13,6 +13,7 @@ export interface WorldNode {
   readonly summary: string;
   readonly thaiSummary: string;
   readonly detail: readonly string[];
+  readonly thaiDetail: readonly string[];
 }
 
 export interface Relationship {
@@ -21,6 +22,7 @@ export interface Relationship {
   readonly to: string;
   readonly kind: RelationshipKind;
   readonly label: string;
+  readonly thaiLabel: string;
 }
 
 export interface CameraState {
@@ -38,7 +40,7 @@ export interface StoryBeat {
   readonly title: string;
   readonly thaiTitle: string;
   readonly lines: readonly string[];
-  readonly thaiLine?: string;
+  readonly thaiLines: readonly string[];
   readonly cameraStateId: string;
   readonly focusNodeId?: string;
   readonly revealNodeIds: readonly string[];
@@ -50,6 +52,7 @@ export interface StoryWorldDefinition {
   readonly version: "0.1";
   readonly title: string;
   readonly truthfulnessNotice: string;
+  readonly thaiTruthfulnessNotice: string;
   readonly nodes: readonly WorldNode[];
   readonly relationships: readonly Relationship[];
   readonly cameraStates: readonly CameraState[];

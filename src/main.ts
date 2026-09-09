@@ -4,7 +4,9 @@ import { observeDocumentVisibility } from "./platform/visibility";
 import { supportsWebGL } from "./platform/webglSupport";
 import { StoryScene } from "./scene/StoryScene";
 import { StoryController } from "./story/StoryController";
+import { LocaleController } from "./story/localeState";
 import type { StoryState } from "./story/storyState";
+import { UI_COPY } from "./i18n";
 import { StoryOverlay } from "./ui/StoryOverlay";
 import { STORY_WORLD_V0_1 } from "./world/world.v0.1";
 
@@ -27,6 +29,7 @@ stage.dataset.testid = "story-stage";
 app.append(stage);
 
 const controller = new StoryController(STORY_WORLD_V0_1);
+const localeController = new LocaleController();
 let scene: StoryScene | undefined;
 let visible = !document.hidden;
 const webglAvailable = supportsWebGL();
@@ -42,7 +45,8 @@ const overlay = new StoryOverlay(STORY_WORLD_V0_1, {
   selectNode: (nodeId) => controller.selectNode(nodeId),
   setStoryListOpen: (open) => controller.setStoryListOpen(webglAvailable ? open : true),
   setAboutOpen: (open) => controller.setAboutOpen(open),
-}, webglAvailable ? undefined : "3D Story View is unavailable in this browser. The accessible Story List remains fully available.");
+  setLocale: (locale) => localeController.setLocale(locale),
+}, webglAvailable ? undefined : { en: UI_COPY.en.unavailable3d, th: UI_COPY.th.unavailable3d });
 stage.append(overlay.element);
 
 if (webglAvailable) {
@@ -71,6 +75,7 @@ const stopVisibilityObserver = observeDocumentVisibility((nextVisible) => {
   visible = nextVisible;
   scene?.setActive(visible && !controller.getState().storyListOpen);
 });
+const unsubscribeLocale = localeController.subscribe((locale) => overlay.setLocale(locale));
 
 window.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
@@ -81,6 +86,7 @@ window.addEventListener("keydown", (event) => {
 
 function destroy(): void {
   unsubscribe();
+  unsubscribeLocale();
   stopReducedMotionObserver();
   stopVisibilityObserver();
   scene?.dispose();
