@@ -11,7 +11,6 @@ It does not import or modify MSS, Context Room, Ollama, user sources, or operati
 ## Run locally
 
 ```bash
-cd story-world
 npm install
 npm run dev
 ```
@@ -26,3 +25,16 @@ npm run build
 ```
 
 The browser test stores deterministic review images in `artifacts/screenshots/`.
+
+## Deployment
+
+Create a production build with:
+
+```bash
+npm run build
+```
+
+GitHub Pages deploys the generated `dist/` artifact through GitHub Actions whenever
+changes are pushed to `main` (or when the workflow is run manually). The repository's
+GitHub Pages source is GitHub Actions. The public site is expected at
+[https://pnatlab.github.io/msxai-story-world/](https://pnatlab.github.io/msxai-story-world/).
