@@ -95,6 +95,7 @@ export class StoryOverlay {
         <h2 data-copy="meaning-title"></h2>
         <p data-copy="meaning-boundary"></p>
         <p data-copy="meaning-editorial"></p>
+        <p data-copy="meaning-relationships"></p>
       </div>
     `;
     this.element.append(this.about);
@@ -181,7 +182,7 @@ export class StoryOverlay {
     this.labels.forEach((label, id) => {
       const projection = this.projectNode?.(id);
       const node = this.world.nodes.find((entry) => entry.id === id);
-      const isPrimaryNode = node?.kind !== "principle";
+      const isPrimaryNode = node?.kind === "human" || node?.kind === "intention" || node?.kind === "framework";
       const shouldName = this.currentState?.mode === "free"
         ? isPrimaryNode || id === this.currentState.selectedNodeId
         : id === beat.focusNodeId || (beat.id === "opening" && id === "human") || id === this.currentState?.selectedNodeId;
@@ -224,6 +225,7 @@ export class StoryOverlay {
     this.element.querySelector<HTMLElement>('[data-copy="meaning-title"]')!.textContent = MEANING_COPY[this.locale].title;
     this.element.querySelector<HTMLElement>('[data-copy="meaning-boundary"]')!.textContent = localizedTruthfulnessNotice(this.world, this.locale);
     this.element.querySelector<HTMLElement>('[data-copy="meaning-editorial"]')!.textContent = MEANING_COPY[this.locale].editorialParagraph;
+    this.element.querySelector<HTMLElement>('[data-copy="meaning-relationships"]')!.textContent = MEANING_COPY[this.locale].relationshipClarification;
     this.element.querySelector<HTMLElement>('[data-copy-label="storyControls"]')!.setAttribute("aria-label", copy.storyControls);
     this.element.querySelector<HTMLElement>('[data-copy-label="conceptAnchors"]')!.setAttribute("aria-label", copy.conceptAnchors);
     this.element.querySelector<HTMLElement>('[data-copy-label="language"]')!.setAttribute("aria-label", copy.language);

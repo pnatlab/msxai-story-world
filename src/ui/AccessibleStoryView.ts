@@ -1,6 +1,6 @@
 import type { StoryState } from "../story/storyState";
 import type { Locale } from "../story/localeState";
-import { localizedNode, UI_COPY } from "../i18n";
+import { localizedBeat, localizedNode, UI_COPY } from "../i18n";
 import type { StoryWorldDefinition } from "../world/world.schema";
 
 export function storyListEntries(world: StoryWorldDefinition, locale: Locale = "en"): readonly { id: string; label: string; summary: string }[] {
@@ -33,6 +33,11 @@ export function createAccessibleStoryView(
       </div>
       <button class="icon-button" type="button" data-action="close-list">×</button>
     </div>
+    <section class="story-list__current" aria-live="polite">
+      <p class="eyebrow" data-copy="current-beat-label"></p>
+      <h3 data-copy="current-beat-title"></h3>
+      <div data-copy="current-beat-lines"></div>
+    </section>
     <ol class="story-list__beats"></ol>
     <section class="story-list__relationship">
       <p class="eyebrow" data-copy="relationship-title"></p>
@@ -83,6 +88,15 @@ export function createAccessibleStoryView(
       element.querySelector<HTMLElement>('[data-copy="list-description"]')!.textContent = copy.useSameConceptualMap;
       element.querySelector<HTMLElement>('[data-copy="relationship-title"]')!.textContent = copy.declaredRelationships;
       element.querySelector<HTMLElement>('[data-copy="relationship-note"]')!.textContent = copy.conceptualRelationships;
+      const beat = localizedBeat(world.beats[state.beatIndex], locale);
+      element.querySelector<HTMLElement>('[data-copy="current-beat-label"]')!.textContent = copy.currentStoryBeat;
+      element.querySelector<HTMLElement>('[data-copy="current-beat-title"]')!.textContent = beat.title;
+      const beatLines = element.querySelector<HTMLElement>('[data-copy="current-beat-lines"]')!;
+      beatLines.replaceChildren(...beat.lines.map((line) => {
+        const paragraph = document.createElement("p");
+        paragraph.textContent = line;
+        return paragraph;
+      }));
       element.querySelector<HTMLButtonElement>('[data-action="close-list"]')!.setAttribute("aria-label", copy.returnToStoryView);
       element.querySelector<HTMLButtonElement>('[data-action="list-back"]')!.textContent = copy.back;
       element.querySelector<HTMLButtonElement>('[data-action="list-next"]')!.textContent = copy.next;

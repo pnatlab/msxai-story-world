@@ -1,5 +1,5 @@
-export type NodeKind = "human" | "intention" | "framework" | "principle";
-export type RelationshipKind = "holds-intention" | "story-progression" | "expresses-principle";
+export type NodeKind = "human" | "intention" | "framework" | "principle" | "ecosystem-anchor" | "listening-layer" | "language-signal";
+export type RelationshipKind = "holds-intention" | "story-progression" | "expresses-principle" | "conceptual-connection";
 export type StoryMode = "guided" | "free";
 
 export type Vec3Tuple = readonly [number, number, number];
@@ -63,6 +63,7 @@ const RELATIONSHIP_KINDS = new Set<RelationshipKind>([
   "holds-intention",
   "story-progression",
   "expresses-principle",
+  "conceptual-connection",
 ]);
 
 export function validateWorldDefinition(world: StoryWorldDefinition): void {

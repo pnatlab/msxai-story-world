@@ -401,7 +401,17 @@ export class StoryScene {
     const group = new THREE.Group();
     const ornament = new THREE.Group();
     group.add(ornament);
-    const focusRadius = node.kind === "framework" ? 4.1 : node.kind === "principle" ? 0.42 : 0.96;
+    const focusRadius = node.kind === "framework"
+      ? 3.15
+      : node.kind === "listening-layer"
+        ? 1.55
+        : node.kind === "language-signal"
+          ? 0.34
+          : node.kind === "principle"
+            ? 0.42
+            : node.kind === "ecosystem-anchor"
+              ? 1.08
+              : 0.96;
     const focusShell = new THREE.Mesh(
       new THREE.TorusGeometry(focusRadius, 0.018, 5, 72),
       new THREE.MeshBasicMaterial({ color: node.kind === "human" ? WARM : ICE, transparent: true, opacity: 0.42, depthWrite: false }),
@@ -413,9 +423,22 @@ export class StoryScene {
     if (node.kind === "human") this.buildHumanAnchor(ornament);
     else if (node.kind === "intention") this.buildIntentionAnchor(ornament);
     else if (node.kind === "framework") this.buildMsxaiField(ornament);
+    else if (node.kind === "ecosystem-anchor") this.buildEcosystemAnchor(ornament, node.id);
+    else if (node.kind === "listening-layer") this.buildListeningLayer(ornament);
+    else if (node.kind === "language-signal") this.buildLanguageSignal(ornament);
     else this.buildPrincipleNode(ornament);
 
-    const hitRadius = node.kind === "framework" ? 2.4 : node.kind === "principle" ? 0.72 : 1.15;
+    const hitRadius = node.kind === "framework"
+      ? 2.4
+      : node.kind === "listening-layer"
+        ? 1.25
+        : node.kind === "language-signal"
+          ? 0.5
+          : node.kind === "principle"
+            ? 0.72
+            : node.kind === "ecosystem-anchor"
+              ? 0.95
+              : 1.15;
     const hitTarget = new THREE.Mesh(
       new THREE.SphereGeometry(hitRadius, 12, 8),
       new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
@@ -467,7 +490,7 @@ export class StoryScene {
       new THREE.IcosahedronGeometry(0.31, 2),
       new THREE.MeshBasicMaterial({ color: "#d9fbff", transparent: true, opacity: 0.9 }),
     ));
-    [1.35, 2.1, 2.95, 3.8].forEach((radius, index) => {
+    [1.15, 1.75, 2.35, 2.95].forEach((radius, index) => {
       const arc = new THREE.Mesh(
         new THREE.TorusGeometry(radius, 0.018 - index * 0.002, 4, 86, Math.PI * (1.25 + index * 0.12)),
         new THREE.MeshBasicMaterial({ color: index < 2 ? "#b9f3ff" : "#58b6d2", transparent: true, opacity: 0.4 - index * 0.065, depthWrite: false }),
@@ -476,9 +499,100 @@ export class StoryScene {
       group.add(arc);
     });
     group.add(new THREE.Mesh(
-      new THREE.SphereGeometry(3.6, 22, 15),
-      new THREE.MeshBasicMaterial({ color: "#63c7df", wireframe: true, transparent: true, opacity: 0.035, depthWrite: false }),
+      new THREE.SphereGeometry(2.8, 22, 15),
+      new THREE.MeshBasicMaterial({ color: "#63c7df", wireframe: true, transparent: true, opacity: 0.022, depthWrite: false }),
     ));
+  }
+
+  private buildEcosystemAnchor(group: THREE.Group, id: string): void {
+    const colors = {
+      mindhome: "#c3f6ff",
+      mss: "#8fd8ec",
+      mhb: "#bdeff1",
+      "wave-glass-project-h": "#9fd9ee",
+    } as const;
+    const color = colors[id as keyof typeof colors] ?? "#b6e8f2";
+    group.add(new THREE.Mesh(
+      new THREE.IcosahedronGeometry(id === "mhb" ? 0.27 : 0.24, 1),
+      new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.24, roughness: 0.34, metalness: 0.1 }),
+    ));
+
+    if (id === "mss") {
+      [-0.42, 0.42].forEach((offset, index) => {
+        const frame = new THREE.Mesh(
+          new THREE.BoxGeometry(0.46, 0.46, 0.04),
+          new THREE.MeshBasicMaterial({ color: index === 0 ? "#d3f8ff" : "#64b8d0", wireframe: true, transparent: true, opacity: 0.28, depthWrite: false }),
+        );
+        frame.position.set(offset, index ? 0.1 : -0.1, index ? -0.14 : 0.14);
+        frame.rotation.set(0.45 + index * 0.25, 0.5 - index * 0.6, 0.2);
+        group.add(frame);
+      });
+      return;
+    }
+
+    if (id === "wave-glass-project-h") {
+      const pane = new THREE.Mesh(
+        new THREE.CircleGeometry(0.62, 36),
+        new THREE.MeshBasicMaterial({ color: "#aeeeff", transparent: true, opacity: 0.075, side: THREE.DoubleSide, depthWrite: false }),
+      );
+      pane.rotation.set(0.7, 0.4, 0.2);
+      group.add(pane);
+      group.add(new THREE.Mesh(
+        new THREE.TorusGeometry(0.7, 0.014, 4, 56),
+        new THREE.MeshBasicMaterial({ color: "#aeeeff", transparent: true, opacity: 0.32, depthWrite: false }),
+      ));
+      return;
+    }
+
+    const radii = id === "mindhome" ? [0.58, 0.88] : [0.52, 0.72, 0.94];
+    radii.forEach((radius, index) => {
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(radius, 0.012, 4, 56),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.3 - index * 0.055, depthWrite: false }),
+      );
+      ring.rotation.set(0.48 + index * 0.58, index * 0.72, 0.28 + index * 0.31);
+      group.add(ring);
+    });
+  }
+
+  private buildListeningLayer(group: THREE.Group): void {
+    group.add(new THREE.Mesh(
+      new THREE.SphereGeometry(1.28, 20, 14),
+      new THREE.MeshBasicMaterial({ color: "#7ed8ed", transparent: true, opacity: 0.035, depthWrite: false }),
+    ));
+    [0.58, 0.93, 1.28].forEach((radius, index) => {
+      const resonance = new THREE.Mesh(
+        new THREE.TorusGeometry(radius, 0.014, 4, 72, Math.PI * (1.18 + index * 0.16)),
+        new THREE.MeshBasicMaterial({ color: index === 1 ? "#b8f6ff" : "#68c6df", transparent: true, opacity: 0.25 - index * 0.04, depthWrite: false }),
+      );
+      resonance.rotation.set(0.45 + index * 0.7, -0.3 + index * 0.46, index * 0.34);
+      group.add(resonance);
+    });
+    const flow = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-1.08, 0.2, -0.18),
+      new THREE.Vector3(-0.26, 0.78, 0.22),
+      new THREE.Vector3(0.34, -0.58, -0.16),
+      new THREE.Vector3(1.1, 0.12, 0.2),
+    ]);
+    group.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(flow.getPoints(32)),
+      new THREE.LineBasicMaterial({ color: "#b9f7ff", transparent: true, opacity: 0.32, depthWrite: false }),
+    ));
+  }
+
+  private buildLanguageSignal(group: THREE.Group): void {
+    group.add(new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.1, 1),
+      new THREE.MeshBasicMaterial({ color: "#d5fbff", transparent: true, opacity: 0.84, depthWrite: false }),
+    ));
+    [0.22, 0.38].forEach((radius, index) => {
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(radius, 0.009, 4, 42),
+        new THREE.MeshBasicMaterial({ color: "#7dc9dd", transparent: true, opacity: 0.3 - index * 0.08, depthWrite: false }),
+      );
+      ring.rotation.set(index * 0.9 + 0.4, index * 0.6, 0.2);
+      group.add(ring);
+    });
   }
 
   private buildPrincipleNode(group: THREE.Group): void {
@@ -505,7 +619,13 @@ export class StoryScene {
       const toVector = new THREE.Vector3(...to.position);
       const primary = relationship.kind === "holds-intention";
       const progression = relationship.kind === "story-progression";
-      const curve = this.makeSpatialCurve(fromVector, toVector, primary ? 1.15 : progression ? -1.4 : 0.4, primary ? 1.7 : progression ? 2.3 : 0.7);
+      const conceptual = relationship.kind === "conceptual-connection";
+      const curve = this.makeSpatialCurve(
+        fromVector,
+        toVector,
+        primary ? 1.15 : progression ? -1.4 : conceptual ? 0.72 : 0.4,
+        primary ? 1.7 : progression ? 2.3 : conceptual ? 1.05 : 0.7,
+      );
 
       if (primary || progression) {
         group.add(new THREE.Mesh(
@@ -522,7 +642,12 @@ export class StoryScene {
       } else {
         group.add(new THREE.Line(
           new THREE.BufferGeometry().setFromPoints(curve.getPoints(38)),
-          new THREE.LineBasicMaterial({ color: "#6ab9cc", transparent: true, opacity: 0.22, depthWrite: false }),
+          new THREE.LineBasicMaterial({
+            color: relationship.to === "nutuensai" ? "#9ae4ef" : "#6ab9cc",
+            transparent: true,
+            opacity: conceptual ? 0.16 : 0.22,
+            depthWrite: false,
+          }),
         ));
       }
 
@@ -584,6 +709,15 @@ export class StoryScene {
       const phase = id.length * 0.37;
       visual.ornament.rotation.y = Math.sin(time * 0.16 + phase) * 0.12;
       visual.ornament.rotation.x = Math.cos(time * 0.11 + phase) * 0.045;
+      if (id === "nutuensai") {
+        visual.ornament.rotation.z = Math.sin(time * 0.2) * 0.14;
+        visual.ornament.scale.setScalar(1 + Math.sin(time * 0.56) * 0.018);
+      } else if (id === "lli") {
+        visual.ornament.rotation.z = time * 0.16;
+        visual.ornament.scale.setScalar(1 + Math.sin(time * 0.72) * 0.026);
+      } else {
+        visual.ornament.scale.setScalar(1);
+      }
     });
     this.relationshipVisuals.forEach((visual, id) => {
       if (!visual.pulse || !visual.group.visible) return;

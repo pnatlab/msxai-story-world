@@ -24,6 +24,7 @@ export interface UiCopy {
   readonly freeExplore: string;
   readonly conceptAnchor: string;
   readonly conceptualRelationships: string;
+  readonly currentStoryBeat: string;
   readonly accessibleConceptMap: string;
   readonly declaredRelationships: string;
   readonly useSameConceptualMap: string;
@@ -54,7 +55,8 @@ export const UI_COPY: Record<Locale, UiCopy> = {
     guidedStory: "Guided Story",
     freeExplore: "Free Explore",
     conceptAnchor: "Concept anchor",
-    conceptualRelationships: "Conceptual relationships — not model cognition.",
+    conceptualRelationships: "Relationships in this world describe conceptual connections, not runtime architecture or data flow.",
+    currentStoryBeat: "Current story beat",
     accessibleConceptMap: "Accessible concept map",
     declaredRelationships: "Declared relationships",
     useSameConceptualMap: "Use the same conceptual anchors, relationships, and story order without the spatial scene.",
@@ -83,7 +85,8 @@ export const UI_COPY: Record<Locale, UiCopy> = {
     guidedStory: "เรื่องเล่าแบบนำทาง",
     freeExplore: "สำรวจอย่างอิสระ",
     conceptAnchor: "จุดยึดเชิงแนวคิด",
-    conceptualRelationships: "ความสัมพันธ์เชิงแนวคิด — ไม่ใช่การรับรู้ของโมเดล",
+    conceptualRelationships: "ความสัมพันธ์ในโลกนี้แสดงความเชื่อมโยงเชิงแนวคิด ไม่ใช่สถาปัตยกรรมการทำงานหรือการไหลของข้อมูลจริง",
+    currentStoryBeat: "จังหวะเรื่องเล่าปัจจุบัน",
     accessibleConceptMap: "แผนผังแนวคิดที่เข้าถึงได้",
     declaredRelationships: "ความสัมพันธ์ที่ประกาศไว้",
     useSameConceptualMap: "ใช้จุดยึดเชิงแนวคิด ความสัมพันธ์ และลำดับเรื่องเล่าเดียวกันโดยไม่ต้องใช้ฉากเชิงพื้นที่",
@@ -97,14 +100,16 @@ export const UI_COPY: Record<Locale, UiCopy> = {
   },
 };
 
-export const MEANING_COPY: Record<Locale, { readonly title: string; readonly editorialParagraph: string }> = {
+export const MEANING_COPY: Record<Locale, { readonly title: string; readonly editorialParagraph: string; readonly relationshipClarification: string }> = {
   en: {
     title: "An explorable conceptual world",
     editorialParagraph: "The ocean, anchors, ambient points, and connections are conceptual editorial structure. Ambient points carry no concepts. Exploration does not perform work, send a request, or change MSS.",
+    relationshipClarification: "Relationships in this world describe conceptual connections, not runtime architecture or data flow.",
   },
   th: {
     title: "โลกเชิงแนวคิดที่สามารถสำรวจได้",
     editorialParagraph: "มหาสมุทร จุดยึด จุดแวดล้อม และเส้นเชื่อมต่าง ๆ เป็นโครงสร้างเชิงแนวคิดที่ใช้ในการเล่าและจัดวางเนื้อหา จุดแวดล้อมไม่ได้เป็นตัวแทนของแนวคิดใด ๆ และการสำรวจโลกนี้ไม่ได้สั่งให้ระบบทำงาน ไม่ได้ส่งคำขอ และไม่ได้เปลี่ยนแปลง MSS",
+    relationshipClarification: "ความสัมพันธ์ในโลกนี้แสดงความเชื่อมโยงเชิงแนวคิด ไม่ใช่สถาปัตยกรรมการทำงานหรือการไหลของข้อมูลจริง",
   },
 };
 
@@ -140,6 +145,14 @@ export function localizedNextLabel(beat: StoryBeat, locale: Locale): string | un
     opening: { en: "Begin the Story", th: "เริ่มเรื่องเล่า" },
     human: { en: "Reveal Intention", th: "เปิดเผยเจตนา" },
     intention: { en: "Reveal MSxAI", th: "เปิดเผย MSxAI" },
+    msxai: { en: "Meet the Ecosystem", th: "พบกับระบบนิเวศ" },
+    "living-ecosystem": { en: "Meet MindHome", th: "ทำความรู้จัก MindHome" },
+    mindhome: { en: "Meet MSS", th: "ทำความรู้จัก MSS" },
+    mss: { en: "Meet Mindful Health Balance", th: "ทำความรู้จัก Mindful Health Balance" },
+    mhb: { en: "Meet Wave Glass / Project H", th: "ทำความรู้จัก Wave Glass / Project H" },
+    "wave-glass-project-h": { en: "Meet NuTuenSai", th: "ทำความรู้จัก NuTuenSai" },
+    nutuensai: { en: "Meet LLi", th: "ทำความรู้จัก LLi" },
+    lli: { en: "Return the Agency", th: "คืนอำนาจการกำหนดและตัดสินใจให้มนุษย์" },
   };
   const label = labels[beat.id];
   return label ? localizedText(label, locale) : undefined;

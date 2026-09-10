@@ -28,8 +28,51 @@ describe("MSxAI Story World v0.1", () => {
 
   it("uses the bounded Slice 1 relationship vocabulary", () => {
     expect(new Set(STORY_WORLD_V0_1.relationships.map((relationship) => relationship.kind))).toEqual(
-      new Set(["holds-intention", "story-progression", "expresses-principle"]),
+      new Set(["holds-intention", "story-progression", "expresses-principle", "conceptual-connection"]),
     );
+  });
+
+  it("keeps Act 1 intact before Act 2 begins", () => {
+    expect(STORY_WORLD_V0_1.beats.slice(0, 4).map((beat) => beat.id)).toEqual(["opening", "human", "intention", "msxai"]);
+    expect(STORY_WORLD_V0_1.nodes.slice(0, 3).map((node) => node.id)).toEqual(["human", "intention", "msxai"]);
+    expect(STORY_WORLD_V0_1.nodes.find((node) => node.id === "human")?.position).toEqual([0, 1.15, 1.2]);
+  });
+
+  it("starts Act 2 after MSxAI and ends with Human emphasis", () => {
+    expect(STORY_WORLD_V0_1.beats[4]).toMatchObject({ id: "living-ecosystem", focusNodeId: "msxai" });
+    expect(STORY_WORLD_V0_1.beats.at(-1)).toMatchObject({ id: "return-agency", focusNodeId: "human" });
+  });
+
+  it("declares the six language-neutral Act 2 conceptual anchors", () => {
+    const ecosystemIds = ["mss", "mindhome", "mhb", "wave-glass-project-h", "nutuensai", "lli"];
+    expect(STORY_WORLD_V0_1.nodes.filter((node) => ecosystemIds.includes(node.id)).map((node) => node.id).sort()).toEqual(ecosystemIds.sort());
+    expect(STORY_WORLD_V0_1.nodes.find((node) => node.id === "nutuensai")?.kind).toBe("listening-layer");
+    expect(STORY_WORLD_V0_1.nodes.find((node) => node.id === "lli")?.kind).toBe("language-signal");
+  });
+
+  it("provides deterministic EN and TH content for every Act 2 anchor", () => {
+    const ecosystemIds = new Set(["mss", "mindhome", "mhb", "wave-glass-project-h", "nutuensai", "lli"]);
+    STORY_WORLD_V0_1.nodes.filter((node) => ecosystemIds.has(node.id)).forEach((node) => {
+      const english = localizedNode(node, "en");
+      const thai = localizedNode(node, "th");
+      expect(english.label).not.toHaveLength(0);
+      expect(english.summary).not.toHaveLength(0);
+      expect(english.detail.length).toBeGreaterThan(0);
+      expect(thai.label).not.toHaveLength(0);
+      expect(thai.summary).not.toHaveLength(0);
+      expect(thai.detail.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("reveals the Act 2 anchors in the authored calm sequence", () => {
+    expect(STORY_WORLD_V0_1.beats.slice(5, 11).map((beat) => beat.focusNodeId)).toEqual([
+      "mindhome",
+      "mss",
+      "mhb",
+      "wave-glass-project-h",
+      "nutuensai",
+      "lli",
+    ]);
   });
 
   it("resolves every story beat camera state", () => {
@@ -40,11 +83,9 @@ describe("MSxAI Story World v0.1", () => {
   it("keeps Guided Story navigation deterministic", () => {
     const controller = new StoryController(STORY_WORLD_V0_1);
     controller.beginStory();
-    controller.next();
-    controller.next();
-    expect(controller.getState().beatIndex).toBe(3);
-    controller.next();
-    expect(controller.getState().beatIndex).toBe(3);
+    for (let index = 0; index < STORY_WORLD_V0_1.beats.length; index += 1) controller.next();
+    expect(controller.getState().beatIndex).toBe(STORY_WORLD_V0_1.beats.length - 1);
+    expect(controller.getState().selectedNodeId).toBe("human");
   });
 
   it("supports Back through the authored story", () => {
@@ -58,8 +99,8 @@ describe("MSxAI Story World v0.1", () => {
   it("uses shared selection state in Free Explore", () => {
     const controller = new StoryController(STORY_WORLD_V0_1);
     controller.exploreFreely();
-    controller.selectNode("msxai");
-    expect(controller.getState()).toMatchObject({ mode: "free", selectedNodeId: "msxai" });
+    controller.selectNode("mss");
+    expect(controller.getState()).toMatchObject({ mode: "free", selectedNodeId: "mss" });
   });
 
   it("returns to Human without creating another state model", () => {
@@ -75,11 +116,13 @@ describe("MSxAI Story World v0.1", () => {
     expect(resolveTransitionDuration(STORY_WORLD_V0_1.cameraStates[1], false, false)).toBeGreaterThan(0);
   });
 
-  it("contains no MSS or Ollama destination in Slice 1", () => {
+  it("contains conceptual relationships without operational integration details", () => {
     const serialized = JSON.stringify(STORY_WORLD_V0_1).toLowerCase();
     expect(serialized).not.toContain("ollama");
-    expect(serialized).not.toContain("mss");
-    expect(serialized).not.toContain("destination");
+    expect(serialized).not.toContain("localhost");
+    expect(serialized).not.toContain("http");
+    expect(serialized).not.toContain("/api/");
+    expect(STORY_WORLD_V0_1.relationships.filter((relationship) => relationship.kind === "conceptual-connection")).toHaveLength(6);
   });
 
   it("derives Story List entries from the shared world definition", () => {
@@ -103,6 +146,12 @@ describe("MSxAI Story World v0.1", () => {
     const entries = storyListEntries(STORY_WORLD_V0_1);
     expect(entries).toHaveLength(STORY_WORLD_V0_1.nodes.length);
     expect(entries.every((entry) => STORY_WORLD_V0_1.nodes.some((node) => node.id === entry.id))).toBe(true);
+  });
+
+  it("exposes Act 2 anchors through the shared Story List entries", () => {
+    const entries = storyListEntries(STORY_WORLD_V0_1);
+    expect(entries.map((entry) => entry.id)).toEqual(expect.arrayContaining(["mss", "mindhome", "mhb", "wave-glass-project-h", "nutuensai", "lli"]));
+    expect(storyListEntries(STORY_WORLD_V0_1, "th").find((entry) => entry.id === "mss")?.summary).toBe("พื้นที่ทำงานร่วมระหว่างมนุษย์กับ AI");
   });
 
   it("places semantic anchors and principles at distinct three-dimensional positions", () => {
