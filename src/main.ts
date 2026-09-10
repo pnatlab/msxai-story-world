@@ -1,4 +1,5 @@
 import "./styles/story-world.css";
+import { InteractionSound } from "./audio/interactionSound";
 import { observeReducedMotion, prefersReducedMotion } from "./platform/reducedMotion";
 import { observeDocumentVisibility } from "./platform/visibility";
 import { supportsWebGL } from "./platform/webglSupport";
@@ -30,6 +31,7 @@ app.append(stage);
 
 const controller = new StoryController(STORY_WORLD_V0_1);
 const localeController = new LocaleController();
+const interactionSound = new InteractionSound();
 let scene: StoryScene | undefined;
 let visible = !document.hidden;
 const webglAvailable = supportsWebGL();
@@ -46,6 +48,10 @@ const overlay = new StoryOverlay(STORY_WORLD_V0_1, {
   setStoryListOpen: (open) => controller.setStoryListOpen(webglAvailable ? open : true),
   setAboutOpen: (open) => controller.setAboutOpen(open),
   setLocale: (locale) => localeController.setLocale(locale),
+  enableSound: () => interactionSound.enableSound(),
+  disableSound: () => interactionSound.disableSound(),
+  isSoundEnabled: () => interactionSound.isSoundEnabled(),
+  playInteractionSound: () => { interactionSound.playInteractionSound(); },
 }, webglAvailable ? undefined : { en: UI_COPY.en.unavailable3d, th: UI_COPY.th.unavailable3d });
 stage.append(overlay.element);
 
@@ -74,6 +80,7 @@ const stopReducedMotionObserver = observeReducedMotion((reduced) => scene?.setRe
 const stopVisibilityObserver = observeDocumentVisibility((nextVisible) => {
   visible = nextVisible;
   scene?.setActive(visible && !controller.getState().storyListOpen);
+  interactionSound.setPageVisible(nextVisible);
 });
 const unsubscribeLocale = localeController.subscribe((locale) => overlay.setLocale(locale));
 
@@ -91,6 +98,7 @@ function destroy(): void {
   stopVisibilityObserver();
   scene?.dispose();
   scene = undefined;
+  interactionSound.dispose();
 }
 
 if (import.meta.env.DEV) {

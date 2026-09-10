@@ -32,6 +32,11 @@ export interface UiCopy {
   readonly closeAbout: string;
   readonly meaning: string;
   readonly language: string;
+  readonly soundOnState: string;
+  readonly soundOffState: string;
+  readonly turnSoundOn: string;
+  readonly turnSoundOff: string;
+  readonly soundControl: string;
   readonly conceptAnchors: string;
   readonly storyControls: string;
   readonly unavailable3d: string;
@@ -64,6 +69,11 @@ export const UI_COPY: Record<Locale, UiCopy> = {
     closeAbout: "Close About",
     meaning: "Meaning",
     language: "Language",
+    soundOnState: "Sound On",
+    soundOffState: "Sound Off",
+    turnSoundOn: "Turn interaction sound on",
+    turnSoundOff: "Turn interaction sound off",
+    soundControl: "Interaction sound",
     conceptAnchors: "Concept anchors",
     storyControls: "Story controls",
     unavailable3d: "3D Story View is unavailable in this browser. The accessible Story List remains fully available.",
@@ -94,6 +104,11 @@ export const UI_COPY: Record<Locale, UiCopy> = {
     closeAbout: "ปิดเกี่ยวกับ",
     meaning: "ความหมาย",
     language: "ภาษา",
+    soundOnState: "เปิดเสียงอยู่",
+    soundOffState: "ปิดเสียงอยู่",
+    turnSoundOn: "เปิดเสียงตอบสนอง",
+    turnSoundOff: "ปิดเสียงตอบสนอง",
+    soundControl: "เสียงตอบสนอง",
     conceptAnchors: "จุดยึดเชิงแนวคิด",
     storyControls: "การควบคุมเรื่องเล่า",
     unavailable3d: "มุมมองเรื่องเล่า 3 มิติไม่พร้อมใช้งานในเบราว์เซอร์นี้ แต่รายการเรื่องเล่าที่เข้าถึงได้ยังใช้งานได้เต็มรูปแบบ",

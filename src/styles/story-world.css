@@ -54,6 +54,8 @@ button { color: inherit; }
 .language-switch { display: inline-flex; align-items: center; gap: .12rem; flex-shrink: 0; color: #b8dce7; font-size: .72rem; font-weight: 720; letter-spacing: .08em; }
 .language-switch button { border: 1px solid transparent; border-radius: .35rem; padding: .28rem .34rem; color: inherit; background: transparent; cursor: pointer; }
 .language-switch button:hover, .language-switch button:focus-visible, .language-switch button.is-active { border-color: rgba(181, 240, 255, .62); background: rgba(28, 82, 111, .72); color: #effcff; }
+.sound-toggle { display: inline-flex; align-items: center; gap: .4rem; white-space: nowrap; }
+.sound-toggle__icon { width: .95rem; height: .95rem; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
 
 .quiet-button, .primary-button, .icon-button {
   border: 1px solid rgba(186, 237, 250, .28);
@@ -131,7 +133,8 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 
 @media (max-width: 720px) {
   .story-header { align-items: flex-start; }
-  .story-header__actions { justify-content: flex-end; max-width: 11rem; }
+  .story-header__actions { justify-content: flex-end; max-width: 13.5rem; gap: .4rem; }
+  .story-header__actions .quiet-button { padding: .48rem .62rem; font-size: .78rem; }
   .story-copy { top: 7.7rem; left: 1rem; width: calc(100vw - 2rem); }
   .story-copy h1 { font-size: 2.15rem; }
   .entry-card { top: auto; bottom: 5.3rem; left: 1rem; transform: none; }
@@ -141,7 +144,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
   .story-controls { gap: .42rem; }
   .story-controls .quiet-button, .story-controls .primary-button { padding: .48rem .62rem; font-size: .78rem; }
   .node-label { min-width: 5.9rem; font-size: .72rem; }
-  .story-list { top: 5.75rem; right: 1rem; bottom: 1rem; left: 1rem; }
+  .story-list { top: 8.4rem; right: 1rem; bottom: 1rem; left: 1rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

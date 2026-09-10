@@ -188,7 +188,49 @@ test.describe("MSxAI Story World Acts 1 and 2", () => {
     await expect(page.locator(".language-switch")).toBeVisible();
     const languageBox = await page.locator(".language-switch").boundingBox();
     const storyListBox = await page.getByRole("button", { name: "Story List" }).boundingBox();
-    expect(languageBox && storyListBox).toBeTruthy();
-    expect(languageBox!.x).toBeGreaterThanOrEqual(storyListBox!.x + storyListBox!.width - 1);
+    const soundBox = await page.getByRole("button", { name: "Turn interaction sound on" }).boundingBox();
+    expect(languageBox && storyListBox && soundBox).toBeTruthy();
+    const doesNotOverlap = (first: { x: number; y: number; width: number; height: number }, second: { x: number; y: number; width: number; height: number }) => (
+      first.x + first.width <= second.x || second.x + second.width <= first.x || first.y + first.height <= second.y || second.y + second.height <= first.y
+    );
+    expect(doesNotOverlap(languageBox!, storyListBox!)).toBe(true);
+    expect(doesNotOverlap(soundBox!, storyListBox!)).toBe(true);
+    expect(doesNotOverlap(soundBox!, languageBox!)).toBe(true);
+  });
+
+  test("keeps interaction sound opt-in, localized, and independent from the story", async ({ page }) => {
+    const requestsAfterToggle: string[] = [];
+    page.on("request", (request) => requestsAfterToggle.push(request.url()));
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    const sound = page.getByRole("button", { name: "Turn interaction sound on" });
+    await expect(sound).toHaveText("Sound Off");
+    await expect(sound).toHaveAttribute("aria-pressed", "false");
+    await expect(sound).toHaveAttribute("data-sound-state", "off");
+    await expect(sound.locator("svg")).toHaveAttribute("data-state", "off");
+    const before = await inspect(page);
+    const requestCountBeforeToggle = requestsAfterToggle.length;
+    await sound.click();
+    const enabledSound = page.getByRole("button", { name: "Turn interaction sound off" });
+    await expect(enabledSound).toHaveText("Sound On");
+    await expect(enabledSound).toHaveAttribute("aria-pressed", "true");
+    await expect(enabledSound).toHaveAttribute("data-sound-state", "on");
+    await expect(enabledSound.locator("svg")).toHaveAttribute("data-state", "on");
+    expect(await inspect(page)).toMatchObject({ activeStoryBeat: before?.activeStoryBeat, selectedNode: before?.selectedNode });
+    expect(requestsAfterToggle.slice(requestCountBeforeToggle)).toEqual([]);
+
+    await page.getByRole("button", { name: "ภาษาไทย" }).click();
+    const thaiEnabledSound = page.getByRole("button", { name: "ปิดเสียงตอบสนอง" });
+    await expect(thaiEnabledSound).toHaveText("เปิดเสียงอยู่");
+    await expect(thaiEnabledSound).toHaveAttribute("aria-pressed", "true");
+    await expect(thaiEnabledSound.locator("svg")).toHaveAttribute("data-state", "on");
+    await thaiEnabledSound.click();
+    const thaiDisabledSound = page.getByRole("button", { name: "เปิดเสียงตอบสนอง" });
+    await expect(thaiDisabledSound).toHaveText("ปิดเสียงอยู่");
+    await expect(thaiDisabledSound).toHaveAttribute("aria-pressed", "false");
+    await expect(thaiDisabledSound.locator("svg")).toHaveAttribute("data-state", "off");
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(thaiDisabledSound).toBeVisible();
   });
 });

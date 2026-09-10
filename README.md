@@ -30,6 +30,13 @@ The Story World supports a compact EN / TH language switcher. English is the def
 all localized content is deterministic and defined in the repository, with no translation
 API, AI translation, or runtime network dependency.
 
+## Procedural UI Interaction Sound
+
+Subtle UI feedback is generated locally with the browser Web Audio API. It uses no audio
+files, music API, LLM, network service, or third-party sound library. Sound is disabled by
+default, starts only after an explicit Sound On action, and responds only to meaningful UI
+interactions.
+
 ## Deployment
 
 Create a production build with:

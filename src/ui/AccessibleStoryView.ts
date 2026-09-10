@@ -18,6 +18,7 @@ export function createAccessibleStoryView(
     next: () => void;
     returnToHuman: () => void;
     close: () => void;
+    playInteractionSound: () => void;
   },
 ): { element: HTMLElement; render: (state: StoryState, locale: Locale) => void } {
   const element = document.createElement("section");
@@ -51,10 +52,29 @@ export function createAccessibleStoryView(
     </div>
   `;
 
-  element.querySelector<HTMLButtonElement>('[data-action="close-list"]')?.addEventListener("click", actions.close);
-  element.querySelector<HTMLButtonElement>('[data-action="list-back"]')?.addEventListener("click", actions.back);
-  element.querySelector<HTMLButtonElement>('[data-action="list-next"]')?.addEventListener("click", actions.next);
-  element.querySelector<HTMLButtonElement>('[data-action="list-human"]')?.addEventListener("click", actions.returnToHuman);
+  let currentState: StoryState | undefined;
+  element.querySelector<HTMLButtonElement>('[data-action="close-list"]')?.addEventListener("click", () => {
+    actions.close();
+    actions.playInteractionSound();
+  });
+  element.querySelector<HTMLButtonElement>('[data-action="list-back"]')?.addEventListener("click", () => {
+    if (currentState && currentState.beatIndex > 0) {
+      actions.back();
+      actions.playInteractionSound();
+    }
+  });
+  element.querySelector<HTMLButtonElement>('[data-action="list-next"]')?.addEventListener("click", () => {
+    if (currentState && currentState.beatIndex < world.beats.length - 1) {
+      actions.next();
+      actions.playInteractionSound();
+    }
+  });
+  element.querySelector<HTMLButtonElement>('[data-action="list-human"]')?.addEventListener("click", () => {
+    if (currentState && (currentState.beatIndex !== 1 || currentState.selectedNodeId !== "human")) {
+      actions.returnToHuman();
+      actions.playInteractionSound();
+    }
+  });
 
   const list = element.querySelector<HTMLOListElement>(".story-list__beats");
   if (!list) throw new Error("Story List markup is incomplete.");
@@ -65,7 +85,11 @@ export function createAccessibleStoryView(
     const button = document.createElement("button");
     button.type = "button";
     button.innerHTML = `<span></span><small></small><em></em>`;
-    button.addEventListener("click", () => actions.selectNode(node.id));
+    button.addEventListener("click", () => {
+      if (currentState?.selectedNodeId === node.id) return;
+      actions.selectNode(node.id);
+      actions.playInteractionSound();
+    });
     item.append(button);
     list.append(item);
   });
@@ -81,6 +105,7 @@ export function createAccessibleStoryView(
   return {
     element,
     render(state: StoryState, locale: Locale): void {
+      currentState = state;
       const copy = UI_COPY[locale];
       element.setAttribute("aria-label", copy.storyList);
       element.querySelector<HTMLElement>('[data-copy="list-eyebrow"]')!.textContent = copy.accessibleConceptMap;

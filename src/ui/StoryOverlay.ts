@@ -16,6 +16,10 @@ export interface OverlayActions {
   readonly setStoryListOpen: (open: boolean) => void;
   readonly setAboutOpen: (open: boolean) => void;
   readonly setLocale: (locale: Locale) => void;
+  readonly enableSound: () => Promise<boolean>;
+  readonly disableSound: () => Promise<void>;
+  readonly isSoundEnabled: () => boolean;
+  readonly playInteractionSound: () => void;
 }
 
 type NodeProjection = { x: number; y: number; depth: number; visible: boolean };
@@ -42,6 +46,7 @@ export class StoryOverlay {
         <div class="story-header__actions">
           <button class="quiet-button" type="button" data-action="show-about" data-copy="show-about"></button>
           <button class="quiet-button" type="button" data-action="story-list" data-copy="story-list"></button>
+          <button class="quiet-button sound-toggle" type="button" data-action="sound"></button>
           <div class="language-switch" role="group" data-copy-label="language">
             <button type="button" data-locale="en" aria-label="English">EN</button>
             <span aria-hidden="true">|</span>
@@ -106,6 +111,7 @@ export class StoryOverlay {
       next: actions.next,
       returnToHuman: actions.returnToHuman,
       close: () => actions.setStoryListOpen(false),
+      playInteractionSound: actions.playInteractionSound,
     });
     this.storyList.element.hidden = true;
     this.element.append(this.storyList.element);
@@ -118,7 +124,11 @@ export class StoryOverlay {
       button.type = "button";
       button.dataset.nodeId = node.id;
       button.innerHTML = "<strong></strong>";
-      button.addEventListener("click", () => actions.selectNode(node.id));
+      button.addEventListener("click", () => {
+        if (this.currentState?.selectedNodeId === node.id) return;
+        actions.selectNode(node.id);
+        actions.playInteractionSound();
+      });
       labels.append(button);
       this.labels.set(node.id, button);
     });
@@ -230,6 +240,7 @@ export class StoryOverlay {
     this.element.querySelector<HTMLElement>('[data-copy-label="conceptAnchors"]')!.setAttribute("aria-label", copy.conceptAnchors);
     this.element.querySelector<HTMLElement>('[data-copy-label="language"]')!.setAttribute("aria-label", copy.language);
     this.element.querySelector<HTMLButtonElement>('[data-action="close-about"]')!.setAttribute("aria-label", copy.closeAbout);
+    this.renderSoundControl();
     this.element.querySelectorAll<HTMLButtonElement>("[data-locale]").forEach((button) => {
       const active = button.dataset.locale === this.locale;
       button.setAttribute("aria-pressed", String(active));
@@ -272,21 +283,89 @@ export class StoryOverlay {
     const listen = (action: string, callback: () => void) => {
       this.element.querySelector<HTMLButtonElement>(`[data-action="${action}"]`)?.addEventListener("click", callback);
     };
-    listen("begin", this.actions.beginStory);
-    listen("free", this.actions.exploreFreely);
-    listen("next", () => this.currentState?.mode === "free" ? this.actions.resumeStory() : this.actions.next());
-    listen("back", this.actions.back);
-    listen("explore", () => this.currentState?.mode === "free" ? this.actions.resumeStory() : this.actions.exploreFreely());
+    listen("begin", () => { this.actions.beginStory(); this.actions.playInteractionSound(); });
+    listen("free", () => { this.actions.exploreFreely(); this.actions.playInteractionSound(); });
+    listen("next", () => {
+      if (this.currentState?.mode === "free") {
+        this.actions.resumeStory();
+        this.actions.playInteractionSound();
+      } else if (this.currentState && this.currentState.beatIndex < this.world.beats.length - 1) {
+        this.actions.next();
+        this.actions.playInteractionSound();
+      }
+    });
+    listen("back", () => {
+      if (this.currentState?.mode === "guided" && this.currentState.beatIndex > 0) {
+        this.actions.back();
+        this.actions.playInteractionSound();
+      }
+    });
+    listen("explore", () => {
+      if (this.currentState?.mode !== "free") {
+        this.actions.exploreFreely();
+        this.actions.playInteractionSound();
+      }
+    });
     listen("reset", this.actions.resetView);
-    listen("human", this.actions.returnToHuman);
-    listen("story-list", () => this.actions.setStoryListOpen(true));
+    listen("human", () => {
+      if (this.currentState && (this.currentState.beatIndex !== 1 || this.currentState.selectedNodeId !== "human" || this.currentState.mode !== "guided")) {
+        this.actions.returnToHuman();
+        this.actions.playInteractionSound();
+      }
+    });
+    listen("story-list", () => { this.actions.setStoryListOpen(true); this.actions.playInteractionSound(); });
     listen("show-about", () => this.actions.setAboutOpen(true));
     listen("close-about", () => this.actions.setAboutOpen(false));
+    listen("sound", () => {
+      if (this.actions.isSoundEnabled()) {
+        void this.actions.disableSound().then(() => this.renderSoundControl());
+      } else {
+        void this.actions.enableSound().then((enabled) => {
+          if (enabled) this.actions.playInteractionSound();
+          this.renderSoundControl();
+        });
+      }
+    });
     this.element.querySelectorAll<HTMLButtonElement>("[data-locale]").forEach((button) => {
       button.addEventListener("click", () => {
         const locale = button.dataset.locale;
-        if (locale === "en" || locale === "th") this.actions.setLocale(locale);
+        if ((locale === "en" || locale === "th") && locale !== this.locale) {
+          this.actions.setLocale(locale);
+          this.actions.playInteractionSound();
+        }
       });
     });
   }
+
+  private renderSoundControl(): void {
+    const button = this.element.querySelector<HTMLButtonElement>('[data-action="sound"]');
+    if (!button) return;
+    const enabled = this.actions.isSoundEnabled();
+    const copy = UI_COPY[this.locale];
+    const label = enabled ? copy.soundOnState : copy.soundOffState;
+    button.replaceChildren(createSoundIcon(enabled), createSoundLabel(label));
+    button.dataset.soundState = enabled ? "on" : "off";
+    button.setAttribute("aria-pressed", String(enabled));
+    button.setAttribute("aria-label", enabled ? copy.turnSoundOff : copy.turnSoundOn);
+  }
+}
+
+function createSoundLabel(text: string): HTMLSpanElement {
+  const label = document.createElement("span");
+  label.className = "sound-toggle__label";
+  label.textContent = text;
+  return label;
+}
+
+function createSoundIcon(enabled: boolean): SVGSVGElement {
+  const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  icon.classList.add("sound-toggle__icon");
+  icon.setAttribute("viewBox", "0 0 24 24");
+  icon.setAttribute("aria-hidden", "true");
+  icon.setAttribute("focusable", "false");
+  icon.dataset.state = enabled ? "on" : "off";
+  icon.innerHTML = enabled
+    ? `<path d="M4 10v4h4l5 4V6l-5 4H4Z"/><path d="M16 9.5a3.5 3.5 0 0 1 0 5"/><path d="M18.5 7a7 7 0 0 1 0 10"/>`
+    : `<path d="M4 10v4h4l5 4V6l-5 4H4Z"/><path d="m16 10 4 4m0-4-4 4"/>`;
+  return icon;
 }
