@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { CameraDirector } from "./CameraDirector";
 import { AMBIENT_FIELD_V0_1 } from "./ambientField";
+import { frameForAspect, intentionCoherence } from "./cameraFraming";
+import { createUranianEnvironment } from "./uranianEnvironment";
 import type { StoryState } from "../story/storyState";
 import type { CameraState, Relationship, StoryWorldDefinition, WorldNode } from "../world/world.schema";
 
@@ -20,6 +22,12 @@ export interface SceneInspection {
   readonly usesRaycasting: true;
   readonly disposed: boolean;
   readonly renderCount: number;
+  readonly drawCalls: number;
+  readonly triangles: number;
+  readonly geometryCount: number;
+  readonly materialCount: number;
+  readonly transportObjectCount: number;
+  readonly intentionCoherence: number;
 }
 
 export interface StorySceneOptions {
@@ -39,8 +47,6 @@ type NodeVisual = {
 type ConnectionVisual = {
   readonly group: THREE.Group;
   readonly relationship: Relationship;
-  readonly curve: THREE.CatmullRomCurve3;
-  readonly pulse?: THREE.Mesh;
 };
 
 type AmbientVisual = {
@@ -75,6 +81,12 @@ export class StoryScene {
   private manualInteractionUntil = 0;
   private renderCount = 0;
   private hoverNodeId?: string;
+  private aurora?: THREE.ShaderMaterial;
+  private coherenceStartedAt = -Infinity;
+  private coherence = 1;
+  private readonly projectionVector = new THREE.Vector3();
+  private lastPortrait = false;
+  private allowManualControl = false;
 
   public constructor(private readonly container: HTMLElement, private readonly options: StorySceneOptions) {
     this.reducedMotion = options.reducedMotion;
@@ -116,8 +128,10 @@ export class StoryScene {
   }
 
   public present(state: StoryState, moveCamera = true, immediate = false): void {
+    const previousBeat = this.currentState?.beatIndex;
     this.currentState = state;
     const beat = this.options.world.beats[state.beatIndex];
+    this.allowManualControl = this.getCameraState(beat.cameraStateId).allowManualControl;
     const visibleNodeIds = state.mode === "free" ? this.options.world.nodes.map((node) => node.id) : beat.revealNodeIds;
     const visibleRelationshipIds = state.mode === "free"
       ? this.options.world.relationships.map((relationship) => relationship.id)
@@ -134,7 +148,6 @@ export class StoryScene {
       visual.group.visible = visibleRelationshipIds.includes(id);
       const focused = state.selectedNodeId === visual.relationship.from || state.selectedNodeId === visual.relationship.to;
       this.setConnectionEmphasis(visual.group, focused);
-      if (visual.pulse) visual.pulse.visible = visual.group.visible && !this.reducedMotion;
     });
     this.ambientVisuals.forEach((visual) => {
       visual.object.visible = state.mode === "free" || state.beatIndex >= visual.revealAtBeat;
@@ -145,6 +158,9 @@ export class StoryScene {
       this.director.moveTo(cameraState, immediate || state.mode === "free");
       this.fieldMotionUntil = performance.now() + (this.reducedMotion ? 0 : cameraState.durationMs + 1050);
     }
+    if (previousBeat !== state.beatIndex && beat.id === "intention") {
+      this.coherenceStartedAt = immediate || this.reducedMotion ? -Infinity : performance.now();
+    } else if (beat.id !== "intention") this.coherenceStartedAt = -Infinity;
     this.requestRender();
   }
 
@@ -157,10 +173,8 @@ export class StoryScene {
 
   public setReducedMotion(reduced: boolean): void {
     this.reducedMotion = reduced;
+    if (reduced) this.coherenceStartedAt = -Infinity;
     this.director.setReducedMotion(reduced);
-    this.relationshipVisuals.forEach((visual) => {
-      if (visual.pulse) visual.pulse.visible = visual.group.visible && !reduced;
-    });
     this.requestRender();
   }
 
@@ -176,17 +190,27 @@ export class StoryScene {
   public projectNode(nodeId: string): { x: number; y: number; depth: number; visible: boolean } {
     const visual = this.nodeVisuals.get(nodeId);
     if (!visual || !visual.group.visible) return { x: 0, y: 0, depth: 1, visible: false };
-    const projected = visual.group.getWorldPosition(new THREE.Vector3()).project(this.camera);
-    const rect = this.renderer.domElement.getBoundingClientRect();
+    const projected = visual.group.getWorldPosition(this.projectionVector).project(this.camera);
     return {
-      x: ((projected.x + 1) / 2) * rect.width,
-      y: ((-projected.y + 1) / 2) * rect.height,
+      x: ((projected.x + 1) / 2) * this.container.clientWidth,
+      y: ((-projected.y + 1) / 2) * this.container.clientHeight,
       depth: projected.z,
       visible: projected.z > -1 && projected.z < 1,
     };
   }
 
   public getInspection(): SceneInspection {
+    const geometries = new Set<THREE.BufferGeometry>();
+    const materials = new Set<THREE.Material>();
+    let transportObjectCount = 0;
+    this.scene.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (mesh.geometry) geometries.add(mesh.geometry);
+      if (mesh.material) (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).forEach((m) => materials.add(m));
+    });
+    this.relationshipVisuals.forEach(({ group }) => group.traverse((object) => {
+      if ((object as THREE.Mesh).isMesh) transportObjectCount += 1;
+    }));
     const sceneObjectPositions: Record<string, readonly [number, number, number]> = {};
     this.options.world.nodes.forEach((node) => { sceneObjectPositions[node.id] = node.position; });
     return {
@@ -205,6 +229,12 @@ export class StoryScene {
       usesRaycasting: true,
       disposed: this.disposed,
       renderCount: this.renderCount,
+      drawCalls: this.renderer.info.render.calls,
+      triangles: this.renderer.info.render.triangles,
+      geometryCount: geometries.size,
+      materialCount: materials.size,
+      transportObjectCount,
+      intentionCoherence: this.coherence,
     };
   }
 
@@ -249,36 +279,9 @@ export class StoryScene {
       new THREE.PointsMaterial({ size: 0.075, transparent: true, opacity: 0.6, vertexColors: true, depthWrite: false }),
     ));
 
-    const planetPosition = new THREE.Vector3(34, -69, -112);
-    const planet = new THREE.Mesh(
-      new THREE.SphereGeometry(48, 48, 30),
-      new THREE.MeshStandardMaterial({ color: "#397d9b", emissive: "#0c3854", emissiveIntensity: 0.34, transparent: true, opacity: 0.56, roughness: 0.9, metalness: 0, fog: false }),
-    );
-    planet.position.copy(planetPosition);
-    this.scene.add(planet);
-
-    const atmosphere = new THREE.Mesh(
-      new THREE.SphereGeometry(49.4, 48, 30),
-      new THREE.MeshBasicMaterial({ color: "#8ae2f3", transparent: true, opacity: 0.055, side: THREE.BackSide, fog: false }),
-    );
-    atmosphere.position.copy(planetPosition);
-    this.scene.add(atmosphere);
-
-    const rings = new THREE.Mesh(
-      new THREE.RingGeometry(57, 57.18, 128, 1, 0.18, Math.PI * 1.45),
-      new THREE.MeshBasicMaterial({ color: "#9edbec", transparent: true, opacity: 0.14, side: THREE.DoubleSide, depthWrite: false, fog: false }),
-    );
-    rings.position.copy(planetPosition);
-    rings.rotation.set(Math.PI * 0.43, -0.18, Math.PI * 0.12);
-    this.scene.add(rings);
-
-    const horizonGlow = new THREE.Mesh(
-      new THREE.RingGeometry(48.4, 49.7, 128, 1, Math.PI * 0.06, Math.PI * 0.88),
-      new THREE.MeshBasicMaterial({ color: "#9cecff", transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false, fog: false }),
-    );
-    horizonGlow.position.copy(planetPosition);
-    horizonGlow.lookAt(this.camera.position);
-    this.scene.add(horizonGlow);
+    const environment = createUranianEnvironment();
+    this.aurora = environment.aurora;
+    this.scene.add(environment.group);
   }
 
   private createOcean(): THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial> {
@@ -320,13 +323,13 @@ export class StoryScene {
         varying vec2 vField;
         void main() {
           float t = mix(uTime, 0.0, uStill);
-          float distanceFade = smoothstep(48.0, 5.0, length(vField));
-          float interference = sin(vField.x * 0.24 + sin(vField.y * 0.08) * 2.4 + t * 0.35);
-          float sparseTrace = pow(max(0.0, interference), 18.0);
-          float crest = smoothstep(0.10, 0.30, vWave) * 0.16;
+          float distanceFade = 1.0 - smoothstep(5.0, 48.0, length(vField));
+          float interference = sin(vField.x * 0.14 + sin(vField.y * 0.065) * 2.0 + t * 0.07);
+          float sparseTrace = pow(max(0.0, interference), 10.0);
+          float crest = smoothstep(0.10, 0.30, vWave) * 0.07;
           vec3 color = mix(uFarColor, uNearColor, distanceFade * 0.72 + 0.1);
-          color = mix(color, uTraceColor, sparseTrace * 0.24 + crest);
-          float alpha = (0.18 + sparseTrace * 0.16 + crest * 0.16) * distanceFade;
+          color = mix(color, uTraceColor, sparseTrace * 0.16 + crest);
+          float alpha = (0.10 + sparseTrace * 0.09 + crest * 0.1) * distanceFade;
           gl_FragColor = vec4(color, alpha);
         }
       `,
@@ -340,7 +343,7 @@ export class StoryScene {
   private createOceanTraces(): void {
     const group = new THREE.Group();
     group.name = "ambient:ocean-traces";
-    for (let index = 0; index < 7; index += 1) {
+    for (let index = 0; index < 4; index += 1) {
       const offset = (index - 3) * 6.2;
       const curve = new THREE.CatmullRomCurve3([
         new THREE.Vector3(-42, -1.19, -8 + offset * 0.14),
@@ -359,15 +362,17 @@ export class StoryScene {
   private createAmbientField(): void {
     AMBIENT_FIELD_V0_1.layers.forEach((layer) => {
       const geometry = new THREE.IcosahedronGeometry(1, 0);
-      const material = new THREE.MeshBasicMaterial({ color: "#69cce2", transparent: true, opacity: 0.34, depthWrite: false });
+      const material = new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.34, depthWrite: false });
       const mesh = new THREE.InstancedMesh(geometry, material, layer.nodes.length);
       const matrix = new THREE.Matrix4();
       layer.nodes.forEach((node, index) => {
         const scale = node.scale * (0.88 + node.brightness * 0.45);
         matrix.compose(new THREE.Vector3(...node.position), new THREE.Quaternion(), new THREE.Vector3(scale, scale, scale));
         mesh.setMatrixAt(index, matrix);
+        mesh.setColorAt(index, new THREE.Color("#69cce2").multiplyScalar(0.65 + node.brightness * 0.6));
       });
       mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       mesh.name = `ambient-nodes:${layer.id}`;
       this.ambientVisuals.push({ object: mesh, revealAtBeat: layer.revealAtBeat });
       this.scene.add(mesh);
@@ -628,17 +633,18 @@ export class StoryScene {
       );
 
       if (primary || progression) {
-        group.add(new THREE.Mesh(
-          new THREE.TubeGeometry(curve, 52, primary ? 0.021 : 0.017, 5, false),
-          new THREE.MeshBasicMaterial({ color: primary ? "#d7faff" : "#71c9df", transparent: true, opacity: primary ? 0.56 : 0.4, depthWrite: false }),
-        ));
-        [-1, 1].forEach((direction) => {
-          const companion = this.makeSpatialCurve(fromVector, toVector, direction * (primary ? 1.85 : 1.15), (primary ? 0.9 : 1.45) + direction * 0.2);
-          group.add(new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints(companion.getPoints(48)),
-            new THREE.LineBasicMaterial({ color: primary ? "#81d6e7" : "#4b9eb8", transparent: true, opacity: 0.23, depthWrite: false }),
-          ));
-        });
+        // Quiet fragments express a relationship, without a continuous route or carrier.
+        const points: THREE.Vector3[] = [];
+        for (let index = 0; index < 38; index += 1) {
+          if (index < 4 || index > 33 || (index > 14 && index < 23)) continue;
+          points.push(curve.getPoint(index / 38), curve.getPoint((index + 1) / 38));
+        }
+        const fragment = new THREE.LineSegments(
+          new THREE.BufferGeometry().setFromPoints(points),
+          new THREE.LineBasicMaterial({ color: "#88c4d1", transparent: true, opacity: 0.12, depthWrite: false }),
+        );
+        fragment.name = "relationship:coherent-fragments";
+        group.add(fragment);
       } else {
         group.add(new THREE.Line(
           new THREE.BufferGeometry().setFromPoints(curve.getPoints(38)),
@@ -651,16 +657,7 @@ export class StoryScene {
         ));
       }
 
-      let pulse: THREE.Mesh | undefined;
-      if (primary || progression) {
-        pulse = new THREE.Mesh(
-          new THREE.SphereGeometry(primary ? 0.085 : 0.065, 10, 8),
-          new THREE.MeshBasicMaterial({ color: primary ? "#f8e2b7" : "#c6f7ff", transparent: true, opacity: 0.8, depthWrite: false }),
-        );
-        pulse.visible = !this.reducedMotion;
-        group.add(pulse);
-      }
-      this.relationshipVisuals.set(relationship.id, { group, relationship, curve, pulse });
+      this.relationshipVisuals.set(relationship.id, { group, relationship });
       this.scene.add(group);
     });
   }
@@ -691,7 +688,7 @@ export class StoryScene {
   private readonly renderFrame = (now: number): void => {
     this.animationFrame = undefined;
     if (!this.active || this.disposed) return;
-    const transitioning = this.director.update(now, this.getCameraStateForCurrentBeat().allowManualControl);
+    const transitioning = this.director.update(now, this.allowManualControl);
     const animate = !this.reducedMotion && (transitioning || this.fieldMotionUntil > now || this.manualInteractionUntil > now || this.currentState?.mode === "free");
     this.animateField(now);
     this.renderer.render(this.scene, this.camera);
@@ -702,10 +699,24 @@ export class StoryScene {
 
   private animateField(now: number): void {
     const time = now * 0.001;
+    this.coherence = intentionCoherence(now - this.coherenceStartedAt, this.reducedMotion);
+    if (this.aurora) this.aurora.uniforms.uTime.value = this.reducedMotion ? 0 : time;
     this.ocean.material.uniforms.uStill.value = this.reducedMotion ? 1 : 0;
     if (!this.reducedMotion) this.ocean.material.uniforms.uTime.value = time;
     this.nodeVisuals.forEach((visual, id) => {
-      if (!visual.group.visible || this.reducedMotion) return;
+      if (!visual.group.visible) return;
+      if (id === "intention") {
+        visual.ornament.rotation.set(0, (1 - this.coherence) * 0.22, (1 - this.coherence) * -0.09);
+        visual.ornament.children.forEach((child) => {
+          const mesh = child as THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+          if (mesh.geometry?.type !== "TorusGeometry" || child === visual.focusShell) return;
+          const base = Number(child.userData.coherentOpacity ?? mesh.material.opacity);
+          child.userData.coherentOpacity = base;
+          mesh.material.opacity = base * (0.38 + 0.62 * this.coherence);
+        });
+        return;
+      }
+      if (this.reducedMotion) return;
       const phase = id.length * 0.37;
       visual.ornament.rotation.y = Math.sin(time * 0.16 + phase) * 0.12;
       visual.ornament.rotation.x = Math.cos(time * 0.11 + phase) * 0.045;
@@ -719,19 +730,23 @@ export class StoryScene {
         visual.ornament.scale.setScalar(1);
       }
     });
-    this.relationshipVisuals.forEach((visual, id) => {
-      if (!visual.pulse || !visual.group.visible) return;
-      const phase = id.length * 0.071;
-      visual.pulse.position.copy(visual.curve.getPoint((time * 0.075 + phase) % 1));
-    });
   }
 
   private resize(): void {
     const width = Math.max(this.container.clientWidth, 1);
     const height = Math.max(this.container.clientHeight, 1);
     this.camera.aspect = width / height;
+    const portrait = this.camera.aspect < 0.85;
+    (this.scene.fog as THREE.FogExp2).density = portrait ? 0.014 : 0.021;
+    if (portrait) this.camera.setViewOffset(width, height, 0, -height * 0.15, width, height);
+    else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.setSize(width, height, false);
+    if (this.currentState && portrait !== this.lastPortrait) {
+      this.director.moveTo(this.getCameraStateForCurrentBeat(), true);
+    }
+    this.lastPortrait = portrait;
     this.requestRender();
   }
 
@@ -767,13 +782,13 @@ export class StoryScene {
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(this.pointer, this.camera);
-    return this.raycaster.intersectObjects(this.nodeTargets, false)[0]?.object.userData.nodeId as string | undefined;
+    return this.raycaster.intersectObjects(this.nodeTargets.filter((target) => target.parent?.visible), false)[0]?.object.userData.nodeId as string | undefined;
   }
 
   private getCameraState(id: string): CameraState {
     const state = this.options.world.cameraStates.find((cameraState) => cameraState.id === id);
     if (!state) throw new Error(`Missing camera state: ${id}`);
-    return state;
+    return frameForAspect(state, this.camera.aspect);
   }
 
   private getCameraStateForCurrentBeat(): CameraState {

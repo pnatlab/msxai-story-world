@@ -11,6 +11,7 @@ type CameraTransition = {
   readonly toFov: number;
   readonly startedAt: number;
   readonly durationMs: number;
+  readonly allowManualControl: boolean;
 };
 
 export function resolveTransitionDuration(cameraState: CameraState, reducedMotion: boolean, immediate: boolean): number {
@@ -43,6 +44,15 @@ export class CameraDirector {
     const target = new THREE.Vector3(...state.target);
     const durationMs = resolveTransitionDuration(state, this.reducedMotion, immediate);
     this.controls.enabled = false;
+    // Consume residual input without changing the starting pose of authored travel.
+    const previousPosition = this.camera.position.clone();
+    const previousRotation = this.camera.quaternion.clone();
+    this.controls.enableDamping = false;
+    this.controls.update();
+    this.controls.enableDamping = true;
+    this.camera.position.copy(previousPosition);
+    this.camera.quaternion.copy(previousRotation);
+    this.controls.maxDistance = Math.max(28, targetPosition.distanceTo(target) + 0.01);
 
     if (durationMs === 0) {
       this.camera.position.copy(targetPosition);
@@ -50,6 +60,7 @@ export class CameraDirector {
       this.camera.fov = state.fov;
       this.camera.updateProjectionMatrix();
       this.controls.target.copy(this.target);
+      this.camera.lookAt(this.target);
       this.controls.enabled = state.allowManualControl;
       this.transition = undefined;
       return;
@@ -64,6 +75,7 @@ export class CameraDirector {
       toFov: state.fov,
       startedAt: performance.now(),
       durationMs,
+      allowManualControl: state.allowManualControl,
     };
   }
 
@@ -76,6 +88,7 @@ export class CameraDirector {
       this.camera.fov = THREE.MathUtils.lerp(this.transition.fromFov, this.transition.toFov, eased);
       this.camera.updateProjectionMatrix();
       this.controls.target.copy(this.target);
+      this.camera.lookAt(this.target);
       if (elapsed === 1) {
         this.transition = undefined;
         this.controls.enabled = allowManualControl;
@@ -101,7 +114,7 @@ export class CameraDirector {
         target: [this.transition.toTarget.x, this.transition.toTarget.y, this.transition.toTarget.z],
         fov: this.transition.toFov,
         durationMs: 0,
-        allowManualControl: true,
+        allowManualControl: this.transition.allowManualControl,
       };
       this.moveTo(finalState, true);
     }
