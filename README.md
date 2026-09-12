@@ -30,6 +30,16 @@ The Story World supports a compact EN / TH language switcher. English is the def
 all localized content is deterministic and defined in the repository, with no translation
 API, AI translation, or runtime network dependency.
 
+## Living Ecosystem overview
+
+Living Ecosystem is an optional, non-linear perspective on the same canonical concepts
+and conceptual relationships—not another story act or a runtime diagram. Enter from the
+opening card, story controls, or accessible Story List. Select a concept to inspect its
+connections; select it again, use “View whole ecosystem,” or press Escape to clear focus.
+“Return to Story World” restores the previous story state and camera (reframed if the
+viewport orientation changed). EN / TH and sound preferences remain unchanged. Reduced
+motion enters the settled view immediately; the concept list also works without WebGL.
+
 ## Procedural UI Interaction Sound
 
 Subtle UI feedback is generated locally with the browser Web Audio API. It uses no audio

@@ -7,6 +7,10 @@ export interface LocalizedText {
 }
 
 export interface UiCopy {
+  readonly livingEcosystem: string;
+  readonly exitEcosystem: string;
+  readonly viewEcosystem: string;
+  readonly relatedConcepts: string;
   readonly pageTitle: string;
   readonly storyWorld: string;
   readonly restart: string;
@@ -44,6 +48,10 @@ export interface UiCopy {
 
 export const UI_COPY: Record<Locale, UiCopy> = {
   en: {
+    livingEcosystem: "Living Ecosystem",
+    exitEcosystem: "Return to Story World",
+    viewEcosystem: "View whole ecosystem",
+    relatedConcepts: "Conceptual connections",
     pageTitle: "MSxAI 3D Story World",
     storyWorld: "Story World",
     restart: "Restart MSxAI 3D Story World",
@@ -79,6 +87,10 @@ export const UI_COPY: Record<Locale, UiCopy> = {
     unavailable3d: "3D Story View is unavailable in this browser. The accessible Story List remains fully available.",
   },
   th: {
+    livingEcosystem: "ภาพรวมระบบนิเวศ",
+    exitEcosystem: "กลับสู่โลกเรื่องเล่า",
+    viewEcosystem: "ดูระบบนิเวศทั้งหมด",
+    relatedConcepts: "ความเชื่อมโยงเชิงแนวคิด",
     pageTitle: "โลกเรื่องเล่า 3 มิติของ MSxAI",
     storyWorld: "โลกเรื่องเล่า",
     restart: "เริ่มโลกเรื่องเล่า MSxAI 3 มิติใหม่",

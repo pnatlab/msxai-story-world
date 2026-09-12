@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { CameraDirector } from "./CameraDirector";
+import { ecosystemCamera, LivingEcosystemPresentation } from "./LivingEcosystemPresentation";
 import { AMBIENT_FIELD_V0_1 } from "./ambientField";
 import { frameForAspect, intentionCoherence } from "./cameraFraming";
 import { createUranianEnvironment } from "./uranianEnvironment";
@@ -28,6 +29,7 @@ export interface SceneInspection {
   readonly materialCount: number;
   readonly transportObjectCount: number;
   readonly intentionCoherence: number;
+  readonly livingEcosystem: LivingEcosystemPresentation["inspection"];
 }
 
 export interface StorySceneOptions {
@@ -35,6 +37,7 @@ export interface StorySceneOptions {
   readonly reducedMotion: boolean;
   readonly onSelectNode: (nodeId: string) => void;
   readonly onRender: () => void;
+  readonly onClearSelection?: () => void;
 }
 
 type NodeVisual = {
@@ -87,6 +90,11 @@ export class StoryScene {
   private readonly projectionVector = new THREE.Vector3();
   private lastPortrait = false;
   private allowManualControl = false;
+  private readonly ecosystem: LivingEcosystemPresentation;
+  private savedCamera?: CameraState;
+  private savedPortrait = false;
+  private readonly overviewBackground = new THREE.Color("#102c41");
+  private readonly frameBackground = new THREE.Color();
 
   public constructor(private readonly container: HTMLElement, private readonly options: StorySceneOptions) {
     this.reducedMotion = options.reducedMotion;
@@ -118,6 +126,8 @@ export class StoryScene {
     this.createAmbientField();
     this.createSemanticNodes();
     this.createSemanticRelationships();
+    this.ecosystem = new LivingEcosystemPresentation(this.options.world, this.nodeVisuals);
+    this.scene.add(this.ecosystem.group);
 
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(this.container);
@@ -130,6 +140,7 @@ export class StoryScene {
   public present(state: StoryState, moveCamera = true, immediate = false): void {
     const previousBeat = this.currentState?.beatIndex;
     this.currentState = state;
+    if (this.ecosystem.isOpen) return;
     const beat = this.options.world.beats[state.beatIndex];
     this.allowManualControl = this.getCameraState(beat.cameraStateId).allowManualControl;
     const visibleNodeIds = state.mode === "free" ? this.options.world.nodes.map((node) => node.id) : beat.revealNodeIds;
@@ -170,6 +181,32 @@ export class StoryScene {
     this.director.moveTo(this.getCameraState(beat.cameraStateId), true);
     this.requestRender();
   }
+
+  public setEcosystemOpen(open: boolean): void {
+    const now = performance.now();
+    if (open === this.ecosystem.isOpen) return;
+    if (open) {
+      this.savedCamera = { id: "return-from-overview", position: this.camera.position.toArray() as [number, number, number],
+        target: this.director.target.toArray() as [number, number, number], fov: this.camera.fov, durationMs: 650, allowManualControl: this.allowManualControl };
+      this.savedPortrait = this.lastPortrait;
+      this.ecosystem.enter(this.lastPortrait, this.reducedMotion, now);
+      this.relationshipVisuals.forEach(({ group }) => { group.visible = false; });
+      this.ambientVisuals.forEach(({ object }) => { object.visible = (object as THREE.InstancedMesh).isInstancedMesh === true; });
+      this.allowManualControl = true;
+      this.applyViewOffset();
+      this.director.moveTo(ecosystemCamera(this.lastPortrait), this.reducedMotion);
+    } else {
+      this.ecosystem.leave(this.reducedMotion, now);
+      if (this.currentState) this.present(this.currentState, false);
+      this.applyViewOffset();
+      const target = this.savedPortrait === this.lastPortrait && this.savedCamera ? this.savedCamera : this.getCameraStateForCurrentBeat();
+      this.director.moveTo({ ...target, durationMs: 650 }, this.reducedMotion);
+    }
+    this.fieldMotionUntil = now + (this.reducedMotion ? 0 : 1400);
+    this.requestRender();
+  }
+
+  public selectEcosystemNode(id?: string): void { this.ecosystem.select(id); this.requestRender(); }
 
   public setReducedMotion(reduced: boolean): void {
     this.reducedMotion = reduced;
@@ -235,6 +272,7 @@ export class StoryScene {
       materialCount: materials.size,
       transportObjectCount,
       intentionCoherence: this.coherence,
+      livingEcosystem: this.ecosystem.inspection,
     };
   }
 
@@ -247,11 +285,18 @@ export class StoryScene {
     this.renderer.domElement.removeEventListener("pointermove", this.onPointerMove);
     this.renderer.domElement.removeEventListener("pointerup", this.onPointerUp);
     this.director.dispose();
+    this.ecosystem.dispose();
+    const disposedGeometry = new Set<THREE.BufferGeometry>();
+    const disposedMaterial = new Set<THREE.Material>();
     this.scene.traverse((object) => {
       const mesh = object as THREE.Mesh;
-      mesh.geometry?.dispose();
+      if (mesh.geometry && !disposedGeometry.has(mesh.geometry)) {
+        disposedGeometry.add(mesh.geometry); mesh.geometry.dispose();
+      }
       const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      materials.filter(Boolean).forEach((material) => material.dispose());
+      materials.filter(Boolean).forEach((material) => {
+        if (!disposedMaterial.has(material)) { disposedMaterial.add(material); material.dispose(); }
+      });
     });
     this.renderer.dispose();
     this.renderer.domElement.remove();
@@ -292,6 +337,7 @@ export class StoryScene {
       uniforms: {
         uTime: { value: 0 },
         uStill: { value: this.reducedMotion ? 1 : 0 },
+        uOverview: { value: 0 },
         uNearColor: { value: new THREE.Color("#0b5471") },
         uFarColor: { value: new THREE.Color("#04162d") },
         uTraceColor: { value: new THREE.Color("#58c5e2") },
@@ -314,6 +360,7 @@ export class StoryScene {
         }
       `,
       fragmentShader: `
+        uniform float uOverview;
         uniform float uTime;
         uniform float uStill;
         uniform vec3 uNearColor;
@@ -330,6 +377,15 @@ export class StoryScene {
           vec3 color = mix(uFarColor, uNearColor, distanceFade * 0.72 + 0.1);
           color = mix(color, uTraceColor, sparseTrace * 0.16 + crest);
           float alpha = (0.10 + sparseTrace * 0.09 + crest * 0.1) * distanceFade;
+          if (uOverview > 0.0) {
+            // Broad luminous ice, with sparse subsurface seams rather than a floor grid.
+            float frost = exp(-length((vField-vec2(-3.0,-12.0)) * vec2(.025,.018)) * 1.2);
+            float fracture = pow(max(0.0, sin(vField.x*.24 + abs(sin(vField.y*.09))*2.4)), 36.0);
+            vec3 ice = mix(vec3(.12,.35,.46), vec3(.85,.96,1.0), frost);
+            ice += vec3(.05,.10,.12) * fracture * frost;
+            color = mix(color, ice, uOverview);
+            alpha = mix(alpha, distanceFade * (.42 + frost*.5), uOverview);
+          }
           gl_FragColor = vec4(color, alpha);
         }
       `,
@@ -689,7 +745,11 @@ export class StoryScene {
     this.animationFrame = undefined;
     if (!this.active || this.disposed) return;
     const transitioning = this.director.update(now, this.allowManualControl);
-    const animate = !this.reducedMotion && (transitioning || this.fieldMotionUntil > now || this.manualInteractionUntil > now || this.currentState?.mode === "free");
+    const animate = !this.reducedMotion && (transitioning || this.ecosystem.isTransitioning || this.fieldMotionUntil > now || this.manualInteractionUntil > now || (!this.ecosystem.isOpen && this.currentState?.mode === "free"));
+    const light = this.ecosystem.update(now, this.reducedMotion);
+    this.ocean.material.uniforms.uOverview.value = light;
+    this.renderer.setClearColor(this.frameBackground.copy(BACKGROUND).lerp(this.overviewBackground, light));
+    (this.scene.fog as THREE.FogExp2).density = THREE.MathUtils.lerp(this.lastPortrait ? 0.014 : 0.021, 0.004, light);
     this.animateField(now);
     this.renderer.render(this.scene, this.camera);
     this.renderCount += 1;
@@ -703,6 +763,7 @@ export class StoryScene {
     if (this.aurora) this.aurora.uniforms.uTime.value = this.reducedMotion ? 0 : time;
     this.ocean.material.uniforms.uStill.value = this.reducedMotion ? 1 : 0;
     if (!this.reducedMotion) this.ocean.material.uniforms.uTime.value = time;
+    if (this.ecosystem.isOpen) return;
     this.nodeVisuals.forEach((visual, id) => {
       if (!visual.group.visible) return;
       if (id === "intention") {
@@ -738,16 +799,28 @@ export class StoryScene {
     this.camera.aspect = width / height;
     const portrait = this.camera.aspect < 0.85;
     (this.scene.fog as THREE.FogExp2).density = portrait ? 0.014 : 0.021;
-    if (portrait) this.camera.setViewOffset(width, height, 0, -height * 0.15, width, height);
-    else this.camera.clearViewOffset();
+    this.applyViewOffset();
     this.camera.updateProjectionMatrix();
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.setSize(width, height, false);
-    if (this.currentState && portrait !== this.lastPortrait) {
+    if (this.ecosystem.isOpen && portrait !== this.lastPortrait) {
+      this.ecosystem.resize(portrait);
+      this.director.moveTo(ecosystemCamera(portrait), true);
+    } else if (this.currentState && portrait !== this.lastPortrait) {
       this.director.moveTo(this.getCameraStateForCurrentBeat(), true);
     }
     this.lastPortrait = portrait;
     this.requestRender();
+  }
+
+  private applyViewOffset(): void {
+    const width = Math.max(this.container.clientWidth, 1);
+    const height = Math.max(this.container.clientHeight, 1);
+    const portrait = width / height < 0.85;
+    if (this.ecosystem.isOpen) this.camera.setViewOffset(width, height, 0, -height * (portrait ? 0.01 : 0.04), width, height);
+    else if (portrait) this.camera.setViewOffset(width, height, 0, -height * 0.15, width, height);
+    else this.camera.clearViewOffset();
+    this.camera.updateProjectionMatrix();
   }
 
   private readonly onPointerDown = (event: PointerEvent): void => {
@@ -763,8 +836,10 @@ export class StoryScene {
     if (nodeId !== this.hoverNodeId) {
       const previous = this.hoverNodeId;
       this.hoverNodeId = nodeId;
-      if (previous) this.nodeVisuals.get(previous)?.group.scale.setScalar(1);
-      if (nodeId) this.nodeVisuals.get(nodeId)?.group.scale.setScalar(1.055);
+      if (!this.ecosystem.isOpen) {
+        if (previous) this.nodeVisuals.get(previous)?.group.scale.setScalar(1);
+        if (nodeId) this.nodeVisuals.get(nodeId)?.group.scale.setScalar(1.055);
+      }
       this.renderer.domElement.style.cursor = nodeId ? "pointer" : "grab";
       this.requestRender();
     }
@@ -776,6 +851,7 @@ export class StoryScene {
     if (!start || start.distanceTo(new THREE.Vector2(event.clientX, event.clientY)) > 8 || this.director.isTransitioning) return;
     const nodeId = this.pickNode(event);
     if (nodeId) this.options.onSelectNode(nodeId);
+    else if (this.ecosystem.isOpen) this.options.onClearSelection?.();
   };
 
   private pickNode(event: PointerEvent): string | undefined {

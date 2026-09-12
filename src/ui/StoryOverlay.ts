@@ -5,6 +5,7 @@ import type { StoryWorldDefinition } from "../world/world.schema";
 import { createAccessibleStoryView } from "./AccessibleStoryView";
 
 export interface OverlayActions {
+  readonly enterEcosystem: () => void;
   readonly beginStory: () => void;
   readonly exploreFreely: () => void;
   readonly resumeStory: () => void;
@@ -65,6 +66,7 @@ export class StoryOverlay {
         <button class="quiet-button" type="button" data-action="explore" data-copy="explore"></button>
         <button class="quiet-button" type="button" data-action="reset" data-copy="reset"></button>
         <button class="quiet-button" type="button" data-action="human" data-copy="human"></button>
+        <button class="quiet-button" type="button" data-action="living-ecosystem"></button>
       </nav>
       <p class="truth-cue" data-copy="truth-cue"></p>
       <div class="node-labels" data-copy-label="conceptAnchors"></div>
@@ -79,6 +81,7 @@ export class StoryOverlay {
       <div class="entry-card__actions">
         <button class="primary-button" type="button" data-action="begin" data-copy="begin"></button>
         <button class="quiet-button" type="button" data-action="free" data-copy="free"></button>
+        <button class="quiet-button" type="button" data-action="living-ecosystem"></button>
       </div>
       <p class="fallback-message" data-copy="fallback" role="status" hidden></p>
     `;
@@ -115,6 +118,14 @@ export class StoryOverlay {
     });
     this.storyList.element.hidden = true;
     this.element.append(this.storyList.element);
+    const overviewEntry = document.createElement("button");
+    overviewEntry.type = "button";
+    overviewEntry.className = "quiet-button";
+    overviewEntry.dataset.action = "living-ecosystem";
+    this.storyList.element.querySelector(".story-list__actions")!.append(overviewEntry);
+    this.element.querySelectorAll('[data-action="living-ecosystem"]').forEach((button) => {
+      button.addEventListener("click", actions.enterEcosystem);
+    });
 
     const labels = this.element.querySelector<HTMLElement>(".node-labels");
     if (!labels) throw new Error("Node label region is missing.");
@@ -183,6 +194,7 @@ export class StoryOverlay {
   }
 
   public refreshLabels(): void {
+    if (this.element.classList.contains("is-ecosystem")) return;
     if (!this.currentState || !this.projectNode) {
       this.labels.forEach((label) => { label.hidden = true; });
       return;
@@ -208,6 +220,7 @@ export class StoryOverlay {
 
   private renderStaticCopy(): void {
     const copy = UI_COPY[this.locale];
+    this.element.querySelectorAll('[data-action="living-ecosystem"]').forEach((button) => { button.textContent = copy.livingEcosystem; });
     const opening = localizedBeat(this.world.beats[0], this.locale);
     document.title = copy.pageTitle;
     document.documentElement.lang = this.locale;

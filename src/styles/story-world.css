@@ -150,3 +150,45 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+.story-overlay.is-ecosystem > :not(.story-header):not(.living-ecosystem):not(.about-dialog) { display: none; }
+.story-overlay.is-ecosystem .free-mode-cue { display: none; }
+.story-overlay > .living-ecosystem { position: absolute; inset: 0; pointer-events: none; }
+.living-ecosystem[hidden] { display: none; }
+.ecosystem-heading { position: absolute; top: 15%; left: 5%; max-width: 33rem; }
+.ecosystem-heading h1 { margin: 0 0 .7rem; font-size: clamp(1.5rem, 2.5vw, 2.5rem); letter-spacing: -.025em; font-weight: 450; }
+.ecosystem-heading h1:focus { outline: none; }
+.ecosystem-intro p { margin: .3rem 0; color: #c6e7ee; line-height: 1.6; font-size: .95rem; }
+.ecosystem-labels .ecosystem-node { position: absolute; transform: translateX(-50%); max-width: 150px; padding: .35rem .55rem; min-height: 36px; background: rgba(4, 25, 43, .55); border: 1px solid transparent; border-radius: .55rem; font-size: .76rem; text-align: center; }
+.ecosystem-node { color: #e0f6fc; cursor: pointer; pointer-events: auto; line-height: 1.4; }
+.ecosystem-node[data-ecosystem-node="human"] { color: #ffe2b0; }
+.ecosystem-node[aria-pressed="true"] { border-color: #bdeffc; background: rgba(28, 78, 99, .85); }
+.ecosystem-node.is-receded { color: #8daeba; background: rgba(4,25,43,.22); }
+.ecosystem-node.is-receded[data-ecosystem-node="human"] { color: #d9c5a2; }
+.ecosystem-detail { position: absolute; bottom: 6rem; right: 3%; width: 280px; max-height: 36vh; overflow: auto; padding: 1.1rem 1.2rem; border: 1px solid #a2e4f333; border-radius: 1rem; background: rgba(5, 25, 43, .86); backdrop-filter: blur(12px); pointer-events: auto; }
+.ecosystem-detail h2 { margin: 0; font-size: 1.15rem; font-weight: 500; }
+.ecosystem-detail p { font-size: .85rem; line-height: 1.55; margin: .55rem 0; color: #c6e5ed; }
+.ecosystem-detail .ecosystem-related-title { font-size: .68rem; letter-spacing: .04em; color: #9ac6d5; margin-top: .85rem; }
+.ecosystem-related { display: flex; flex-wrap: wrap; gap: .35rem; }
+.ecosystem-related button { font-size: .68rem; color: #d4eff5; background: #173b4b; border: 1px solid #83bcc733; border-radius: .35rem; padding: .3rem .4rem; cursor: pointer; }
+.ecosystem-controls { position: absolute; bottom: 1.5rem; left: 5%; right: 5%; display: flex; flex-wrap: wrap; gap: .6rem; pointer-events: auto; }
+.ecosystem-controls button { font-size: .82rem; }
+.ecosystem-list { position: absolute; top: 33%; bottom: 6rem; left: 5%; width: min(55%, 680px); overflow: auto; background: rgba(5,25,43,.96); border: 1px solid #a2e4f333; border-radius: 1rem; padding: 1rem; pointer-events: auto; }
+.ecosystem-list__top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.ecosystem-list h2 { font-size: 1rem; }
+.ecosystem-list__nodes { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.ecosystem-list__nodes button { padding: .7rem; border: 1px solid #a2e4f333; border-radius: .6rem; background: #122e40; text-align: left; }
+@media (max-width: 680px) {
+  .ecosystem-heading { top: 17%; left: 6%; right: 6%; }
+  .ecosystem-heading h1 { font-size: 1.6rem; }
+  .ecosystem-intro p { font-size: .79rem; line-height: 1.6; }
+  .ecosystem-labels .ecosystem-node { max-width: 112px; padding: .22rem .38rem; font-size: .68rem; min-height: 36px; }
+  .ecosystem-detail { left: 5%; right: 5%; bottom: 4.4rem; width: auto; max-height: 145px; padding: .7rem .9rem; }
+  .ecosystem-detail h2 { font-size: 1rem; }
+  .ecosystem-detail p { font-size: .76rem; margin: .35rem 0; }
+  .ecosystem-controls { bottom: 1rem; gap: .4rem; }
+  .ecosystem-controls button { font-size: .72rem; padding: .5rem .55rem; }
+  .ecosystem-list { top: 34%; bottom: 4.5rem; left: 5%; right: 5%; width: auto; }
+  .living-ecosystem.is-list .ecosystem-detail { display: none; }
+  .living-ecosystem.is-fallback:has(.ecosystem-detail:not([hidden])) .ecosystem-list { bottom: 15rem; }
+  .living-ecosystem.is-fallback .ecosystem-detail { display: block; }
+}
