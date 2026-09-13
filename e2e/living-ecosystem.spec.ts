@@ -1,4 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
+import { FOUNDATIONAL_SESSION_KEY } from "../src/ui/foundationalOpeningModel";
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript((key) => sessionStorage.setItem(key, "seen"), FOUNDATIONAL_SESSION_KEY);
+});
 
 const inspect = (page: Page) => page.evaluate(() => window.__MSXAI_STORY_WORLD__!.inspect());
 const evidence = (name: string) => `artifacts/living-ecosystem-v0.1/${name}.png`;

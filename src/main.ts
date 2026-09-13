@@ -1,4 +1,6 @@
 import "./styles/story-world.css";
+import "./styles/foundational-opening.css";
+import { FoundationalOpening } from "./ui/FoundationalOpening";
 import { InteractionSound } from "./audio/interactionSound";
 import { observeReducedMotion, prefersReducedMotion } from "./platform/reducedMotion";
 import { observeDocumentVisibility } from "./platform/visibility";
@@ -113,13 +115,15 @@ const unsubscribeEcosystem = ecosystem.subscribe((state) => {
   ecosystemWasOpen = state.open;
 });
 
-const stopReducedMotionObserver = observeReducedMotion((reduced) => scene?.setReducedMotion(reduced));
+const opening = new FoundationalOpening(stage, overlay.element, prefersReducedMotion());
+const stopReducedMotionObserver = observeReducedMotion((reduced) => { scene?.setReducedMotion(reduced); opening.setReducedMotion(reduced); });
 const stopVisibilityObserver = observeDocumentVisibility((nextVisible) => {
   visible = nextVisible;
+  opening.setVisible(nextVisible);
   scene?.setActive(visible && !(ecosystem.getState().open ? ecosystem.getState().listOpen : controller.getState().storyListOpen));
   interactionSound.setPageVisible(nextVisible);
 });
-const unsubscribeLocale = localeController.subscribe((locale) => { overlay.setLocale(locale); ecosystemView.setLocale(locale); });
+const unsubscribeLocale = localeController.subscribe((locale) => { overlay.setLocale(locale); ecosystemView.setLocale(locale); opening.setLocale(locale); });
 
 const onKeyDown = (event: KeyboardEvent): void => {
   if (event.key !== "Escape") return;
@@ -135,6 +139,7 @@ const onKeyDown = (event: KeyboardEvent): void => {
 window.addEventListener("keydown", onKeyDown);
 
 function destroy(): void {
+  opening.dispose();
   unsubscribe();
   unsubscribeEcosystem();
   window.removeEventListener("keydown", onKeyDown);

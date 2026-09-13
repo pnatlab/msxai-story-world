@@ -30,6 +30,17 @@ The Story World supports a compact EN / TH language switcher. English is the def
 all localized content is deterministic and defined in the repository, with no translation
 API, AI translation, or runtime network dependency.
 
+## Foundational quote opening
+
+A silent, skippable six-second prelude presents Pnat's original English statement (2025)
+before the existing entry screen. “Pause to read” holds the complete quote; Escape or
+“Skip opening” proceeds immediately. Reduced motion uses a brief static presentation.
+A single sessionStorage flag avoids repeats in the same tab session; blocked storage
+falls back to memory for the current page. There is no tracking or durable storage.
+The English source remains available in About / Meaning in both locales; no Thai quote
+is presented as historically authored wording. No replay button or additional media,
+audio, renderer, or dependency is introduced.
+
 ## Living Ecosystem overview
 
 Living Ecosystem is an optional, non-linear perspective on the same canonical concepts

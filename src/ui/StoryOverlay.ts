@@ -3,6 +3,7 @@ import type { Locale } from "../story/localeState";
 import { localizedBeat, localizedNode, localizedNextLabel, localizedTruthfulnessNotice, localizedWorldTitle, MEANING_COPY, UI_COPY } from "../i18n";
 import type { StoryWorldDefinition } from "../world/world.schema";
 import { createAccessibleStoryView } from "./AccessibleStoryView";
+import { FOUNDATIONAL_ATTRIBUTION, FOUNDATIONAL_QUOTE } from "./foundationalOpeningModel";
 
 export interface OverlayActions {
   readonly enterEcosystem: () => void;
@@ -104,9 +105,12 @@ export class StoryOverlay {
         <p data-copy="meaning-boundary"></p>
         <p data-copy="meaning-editorial"></p>
         <p data-copy="meaning-relationships"></p>
+        <details class="foundational-note"><summary data-copy="foundational-statement"></summary><figure lang="en"><blockquote></blockquote><figcaption></figcaption></figure></details>
       </div>
     `;
     this.element.append(this.about);
+    this.about.querySelector(".foundational-note blockquote")!.textContent = FOUNDATIONAL_QUOTE;
+    this.about.querySelector(".foundational-note figcaption")!.textContent = FOUNDATIONAL_ATTRIBUTION;
 
     this.storyList = createAccessibleStoryView(world, {
       selectNode: actions.selectNode,
@@ -220,6 +224,7 @@ export class StoryOverlay {
 
   private renderStaticCopy(): void {
     const copy = UI_COPY[this.locale];
+    this.element.querySelector('[data-copy="foundational-statement"]')!.textContent = copy.foundationalStatement;
     this.element.querySelectorAll('[data-action="living-ecosystem"]').forEach((button) => { button.textContent = copy.livingEcosystem; });
     const opening = localizedBeat(this.world.beats[0], this.locale);
     document.title = copy.pageTitle;

@@ -7,6 +7,10 @@ export interface LocalizedText {
 }
 
 export interface UiCopy {
+  readonly foundationalStatement: string;
+  readonly skipOpening: string;
+  readonly pauseOpening: string;
+  readonly continueOpening: string;
   readonly livingEcosystem: string;
   readonly exitEcosystem: string;
   readonly viewEcosystem: string;
@@ -48,6 +52,10 @@ export interface UiCopy {
 
 export const UI_COPY: Record<Locale, UiCopy> = {
   en: {
+    foundationalStatement: "Foundational statement · 2025",
+    skipOpening: "Skip opening",
+    pauseOpening: "Pause to read",
+    continueOpening: "Continue",
     livingEcosystem: "Living Ecosystem",
     exitEcosystem: "Return to Story World",
     viewEcosystem: "View whole ecosystem",
@@ -87,6 +95,10 @@ export const UI_COPY: Record<Locale, UiCopy> = {
     unavailable3d: "3D Story View is unavailable in this browser. The accessible Story List remains fully available.",
   },
   th: {
+    foundationalStatement: "ถ้อยคำตั้งต้น · 2025",
+    skipOpening: "ข้ามบทเปิด",
+    pauseOpening: "หยุดเพื่ออ่าน",
+    continueOpening: "ดำเนินต่อ",
     livingEcosystem: "ภาพรวมระบบนิเวศ",
     exitEcosystem: "กลับสู่โลกเรื่องเล่า",
     viewEcosystem: "ดูระบบนิเวศทั้งหมด",

@@ -1,4 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { FOUNDATIONAL_SESSION_KEY } from "../src/ui/foundationalOpeningModel";
+
+// Existing-world regressions exercise a returning visitor; first-entry coverage has its own suite.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript((key) => sessionStorage.setItem(key, "seen"), FOUNDATIONAL_SESSION_KEY);
+});
 
 const screenshotPath = (name: string) => `artifacts/screenshots/${name}.png`;
 type Inspection = {
