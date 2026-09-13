@@ -43,6 +43,7 @@ const webglAvailable = supportsWebGL();
 const feedback = (accepted: boolean): void => { if (accepted) interactionSound.playInteractionSound(); };
 const selectEcosystem = (id?: string): void => { feedback(ecosystem.select(id)); };
 let returnFocus: HTMLElement | null = null;
+let opening: FoundationalOpening;
 
 const overlay = new StoryOverlay(STORY_WORLD_V0_1, {
   enterEcosystem: () => { feedback(ecosystem.enter()); },
@@ -59,6 +60,15 @@ const overlay = new StoryOverlay(STORY_WORLD_V0_1, {
     else controller.setStoryListOpen(webglAvailable ? open : true);
   },
   setAboutOpen: (open) => controller.setAboutOpen(open),
+  replayOpening: (trigger) => {
+    overlay.setAboutReplaySuspended(true);
+    opening = new FoundationalOpening(stage, overlay.element, prefersReducedMotion(), {
+      replay: true,
+      returnFocus: trigger,
+      onFinish: () => overlay.setAboutReplaySuspended(false),
+    });
+    opening.setLocale(localeController.getLocale());
+  },
   setLocale: (locale) => localeController.setLocale(locale),
   enableSound: () => interactionSound.enableSound(),
   disableSound: () => interactionSound.disableSound(),
@@ -115,7 +125,7 @@ const unsubscribeEcosystem = ecosystem.subscribe((state) => {
   ecosystemWasOpen = state.open;
 });
 
-const opening = new FoundationalOpening(stage, overlay.element, prefersReducedMotion());
+opening = new FoundationalOpening(stage, overlay.element, prefersReducedMotion());
 const stopReducedMotionObserver = observeReducedMotion((reduced) => { scene?.setReducedMotion(reduced); opening.setReducedMotion(reduced); });
 const stopVisibilityObserver = observeDocumentVisibility((nextVisible) => {
   visible = nextVisible;

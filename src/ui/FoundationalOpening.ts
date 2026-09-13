@@ -2,6 +2,12 @@ import type { Locale } from "../story/localeState";
 import { UI_COPY } from "../i18n";
 import { FOUNDATIONAL_ATTRIBUTION, FOUNDATIONAL_PHRASES, FOUNDATIONAL_QUOTE, foundationalFrame, FoundationalOpeningSession } from "./foundationalOpeningModel";
 
+interface OpeningOptions {
+  readonly replay?: boolean;
+  readonly onFinish?: () => void;
+  readonly returnFocus?: HTMLElement;
+}
+
 /** A disposable prelude. It never receives a scene, StoryState, or ecosystem controller. */
 export class FoundationalOpening {
   private readonly element = document.createElement("section");
@@ -22,8 +28,8 @@ export class FoundationalOpening {
   private active = false;
   private locale: Locale = "en";
 
-  constructor(container: HTMLElement, private readonly worldUi: HTMLElement, private reduced: boolean) {
-    if (this.session.hasSeen()) return;
+  constructor(container: HTMLElement, private readonly worldUi: HTMLElement, private reduced: boolean, private readonly options: OpeningOptions = {}) {
+    if (!options.replay && this.session.hasSeen()) return;
     this.active = true;
     this.element.className = "foundational-opening";
     this.element.dataset.testid = "foundational-opening";
@@ -134,13 +140,14 @@ export class FoundationalOpening {
     if (!this.active) return;
     this.active = false;
     this.stopFrame(); this.events.abort();
-    if (markSeen) this.session.markSeen();
+    if (markSeen && !this.options.replay) this.session.markSeen();
     this.element.remove();
     this.worldUi.inert = false;
     this.worldUi.classList.remove("is-opening-covered");
     this.worldUi.style.removeProperty("--opening-ui-opacity");
+    this.options.onFinish?.();
     if (focus && document.hasFocus()) {
-      const target = this.worldUi.querySelector<HTMLElement>('.story-list:not([hidden]) button, .entry-card [data-action="begin"]');
+      const target = this.options.returnFocus ?? this.worldUi.querySelector<HTMLElement>('.story-list:not([hidden]) button, .entry-card [data-action="begin"]');
       target?.focus({ preventScroll: true });
     }
   }

@@ -8,6 +8,7 @@ export interface LocalizedText {
 
 export interface UiCopy {
   readonly foundationalStatement: string;
+  readonly replayOpening: string;
   readonly skipOpening: string;
   readonly pauseOpening: string;
   readonly continueOpening: string;
@@ -53,6 +54,7 @@ export interface UiCopy {
 export const UI_COPY: Record<Locale, UiCopy> = {
   en: {
     foundationalStatement: "Foundational statement · 2025",
+    replayOpening: "Replay Opening",
     skipOpening: "Skip opening",
     pauseOpening: "Pause to read",
     continueOpening: "Continue",
@@ -96,6 +98,7 @@ export const UI_COPY: Record<Locale, UiCopy> = {
   },
   th: {
     foundationalStatement: "ถ้อยคำตั้งต้น · 2025",
+    replayOpening: "ดูช่วงเปิดอีกครั้ง",
     skipOpening: "ข้ามบทเปิด",
     pauseOpening: "หยุดเพื่ออ่าน",
     continueOpening: "ดำเนินต่อ",

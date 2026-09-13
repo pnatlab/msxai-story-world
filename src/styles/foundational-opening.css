@@ -19,6 +19,7 @@
 .foundational-note blockquote { margin: 1rem 0; color: #e4f4f7; line-height: 1.65; }
 .foundational-note figcaption { font-size: .82rem; color: #b8d5df; }
 .foundational-note figure { margin: 0; }
+.foundational-note__replay { margin-top: .9rem; font-size: .8rem; }
 @media (max-width: 680px) {
   .foundational-opening__quote { top: 45%; width: calc(100% - 3.5rem); max-width: 24rem; }
   .foundational-opening__quote blockquote { font-size: 1.45rem; line-height: 1.55; letter-spacing: -.018em; }

@@ -17,6 +17,7 @@ export interface OverlayActions {
   readonly selectNode: (nodeId: string) => void;
   readonly setStoryListOpen: (open: boolean) => void;
   readonly setAboutOpen: (open: boolean) => void;
+  readonly replayOpening: (trigger: HTMLButtonElement) => void;
   readonly setLocale: (locale: Locale) => void;
   readonly enableSound: () => Promise<boolean>;
   readonly disableSound: () => Promise<void>;
@@ -34,6 +35,7 @@ export class StoryOverlay {
   private readonly about = document.createElement("section");
   private readonly storyList: ReturnType<typeof createAccessibleStoryView>;
   private currentState?: StoryState;
+  private aboutReplaySuspended = false;
   private projectNode?: (nodeId: string) => NodeProjection;
   private locale: Locale = "en";
   private readonly fallbackMessage?: { readonly en: string; readonly th: string };
@@ -105,7 +107,7 @@ export class StoryOverlay {
         <p data-copy="meaning-boundary"></p>
         <p data-copy="meaning-editorial"></p>
         <p data-copy="meaning-relationships"></p>
-        <details class="foundational-note"><summary data-copy="foundational-statement"></summary><figure lang="en"><blockquote></blockquote><figcaption></figcaption></figure></details>
+        <details class="foundational-note"><summary data-copy="foundational-statement"></summary><figure lang="en"><blockquote></blockquote><figcaption></figcaption></figure><button class="quiet-button foundational-note__replay" type="button" data-action="replay-opening" data-copy="replay-opening"></button></details>
       </div>
     `;
     this.element.append(this.about);
@@ -162,6 +164,11 @@ export class StoryOverlay {
     if (this.currentState) this.render(this.currentState);
   }
 
+  public setAboutReplaySuspended(suspended: boolean): void {
+    this.aboutReplaySuspended = suspended;
+    this.about.hidden = suspended || !this.currentState?.aboutOpen;
+  }
+
   public render(state: StoryState): void {
     this.currentState = state;
     this.renderStaticCopy();
@@ -181,7 +188,7 @@ export class StoryOverlay {
     this.element.querySelector<HTMLElement>(".story-copy")!.hidden = state.entryOpen || state.mode === "free";
     this.element.querySelector<HTMLElement>('[data-copy="free-mode"]')!.hidden = state.mode !== "free" || state.entryOpen;
     this.element.querySelector<HTMLElement>(".story-controls")!.hidden = state.entryOpen;
-    this.about.hidden = !state.aboutOpen;
+    this.about.hidden = this.aboutReplaySuspended || !state.aboutOpen;
     this.storyList.element.hidden = !state.storyListOpen;
     this.storyList.render(state, this.locale);
 
@@ -225,6 +232,7 @@ export class StoryOverlay {
   private renderStaticCopy(): void {
     const copy = UI_COPY[this.locale];
     this.element.querySelector('[data-copy="foundational-statement"]')!.textContent = copy.foundationalStatement;
+    this.element.querySelector('[data-copy="replay-opening"]')!.textContent = copy.replayOpening;
     this.element.querySelectorAll('[data-action="living-ecosystem"]').forEach((button) => { button.textContent = copy.livingEcosystem; });
     const opening = localizedBeat(this.world.beats[0], this.locale);
     document.title = copy.pageTitle;
@@ -334,6 +342,7 @@ export class StoryOverlay {
     listen("story-list", () => { this.actions.setStoryListOpen(true); this.actions.playInteractionSound(); });
     listen("show-about", () => this.actions.setAboutOpen(true));
     listen("close-about", () => this.actions.setAboutOpen(false));
+    listen("replay-opening", () => this.actions.replayOpening(this.about.querySelector<HTMLButtonElement>('[data-action="replay-opening"]')!));
     listen("sound", () => {
       if (this.actions.isSoundEnabled()) {
         void this.actions.disableSound().then(() => this.renderSoundControl());
