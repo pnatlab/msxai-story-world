@@ -2,6 +2,7 @@ import { localizedBeat, localizedNode, UI_COPY } from "../i18n";
 import type { Locale } from "../story/localeState";
 import { relatedNodeIds, type LivingEcosystemState } from "../story/livingEcosystemState";
 import type { StoryWorldDefinition } from "../world/world.schema";
+import { productIdentity, PRODUCT_COPY } from "../world/productIdentity";
 
 export class LivingEcosystemView {
   readonly element = document.createElement("section");
@@ -19,7 +20,7 @@ export class LivingEcosystemView {
     this.element.innerHTML = `<div class="ecosystem-heading"><p class="eyebrow">MSxAI</p><h1 id="ecosystem-title" tabindex="-1"></h1><div class="ecosystem-intro"></div></div>
       <div class="ecosystem-labels"></div>
       <section class="ecosystem-list" hidden><div class="ecosystem-list__top"><h2></h2><button type="button" class="quiet-button" data-ecosystem="close-list"></button></div><div class="ecosystem-list__nodes"></div></section>
-      <aside class="ecosystem-detail" aria-live="polite" hidden><h2></h2><p class="ecosystem-role"></p><p class="ecosystem-description"></p><p class="ecosystem-related-title"></p><div class="ecosystem-related"></div></aside>
+      <aside class="ecosystem-detail" aria-live="polite" hidden><div class="ecosystem-detail-heading"><img class="ecosystem-product-mark" alt="" aria-hidden="true" width="42" height="42" hidden><div><p class="ecosystem-product-name" hidden></p><h2></h2><p class="ecosystem-role"></p></div></div><p class="ecosystem-description"></p><details class="ecosystem-product-story" hidden><summary></summary><dl><dt data-product-copy="need-label"></dt><dd data-product-copy="need"></dd><dt data-product-copy="role-label"></dt><dd data-product-copy="role"></dd></dl><p class="ecosystem-product-principle"></p></details><p class="ecosystem-related-title"></p><div class="ecosystem-related"></div></aside>
       <nav class="ecosystem-controls"><button type="button" class="quiet-button" data-ecosystem="exit"></button><button type="button" class="quiet-button" data-ecosystem="clear" hidden></button></nav>`;
     this.world.nodes.forEach((node) => {
       for (const [container, map] of [[".ecosystem-labels", this.labels], [".ecosystem-list__nodes", this.listButtons]] as const) {
@@ -39,6 +40,7 @@ export class LivingEcosystemView {
   focusHeading(): void { this.element.querySelector<HTMLElement>("h1")?.focus({ preventScroll: true }); }
   render(state: LivingEcosystemState): void {
     const previousListOpen = this.state.listOpen;
+    const previousSelection = this.state.selectedNodeId;
     const hadFocus = this.element.contains(document.activeElement);
     this.state = state;
     this.element.hidden = !state.open;
@@ -67,16 +69,40 @@ export class LivingEcosystemView {
         button.textContent = node.id === "mhb" && map === this.labels ? "MHB" : content.label;
         button.setAttribute("aria-label", `${content.label} — ${content.summary}`);
         button.setAttribute("aria-pressed", String(node.id === state.selectedNodeId));
+        const identity = productIdentity(node.id);
+        if (identity) button.style.setProperty("--product-accent", identity.accent);
       }
     }
     const detail = this.element.querySelector<HTMLElement>(".ecosystem-detail")!;
     const node = this.world.nodes.find((node) => node.id === state.selectedNodeId);
     detail.hidden = !node;
+    const identity = productIdentity(node?.id);
+    detail.classList.toggle("is-product", Boolean(identity));
+    detail.tabIndex = identity ? 0 : -1;
+    if (identity) { detail.dataset.product = node!.id; detail.style.setProperty("--product-accent", identity.accent); }
+    else { delete detail.dataset.product; detail.style.removeProperty("--product-accent"); }
+    const mark = detail.querySelector<HTMLImageElement>(".ecosystem-product-mark")!;
+    const productName = detail.querySelector<HTMLElement>(".ecosystem-product-name")!;
+    const productStory = detail.querySelector<HTMLDetailsElement>(".ecosystem-product-story")!;
+    mark.hidden = productName.hidden = productStory.hidden = !identity;
+    if (previousSelection !== state.selectedNodeId) { productStory.open = false; detail.scrollTop = 0; }
     if (node) {
       const content = localizedNode(node, this.locale);
       detail.querySelector("h2")!.textContent = content.label;
       detail.querySelector(".ecosystem-role")!.textContent = content.summary;
-      detail.querySelector(".ecosystem-description")!.textContent = content.detail[0] ?? "";
+      detail.querySelector(".ecosystem-description")!.textContent = identity?.copy[this.locale].description ?? content.detail[0] ?? "";
+      if (identity) {
+        const product = identity.copy[this.locale], labels = PRODUCT_COPY[this.locale];
+        mark.src = identity.mark;
+        productName.textContent = product.name;
+        productName.hidden = content.label.includes(product.name);
+        productStory.querySelector("summary")!.textContent = labels.closer;
+        productStory.querySelector('[data-product-copy="need-label"]')!.textContent = labels.need;
+        productStory.querySelector('[data-product-copy="need"]')!.textContent = product.need;
+        productStory.querySelector('[data-product-copy="role-label"]')!.textContent = labels.role;
+        productStory.querySelector('[data-product-copy="role"]')!.textContent = product.role;
+        productStory.querySelector(".ecosystem-product-principle")!.textContent = product.principle;
+      } else mark.removeAttribute("src");
       detail.querySelector(".ecosystem-related-title")!.textContent = copy.relatedConcepts;
       detail.querySelector(".ecosystem-related")!.replaceChildren(...[...relatedNodeIds(this.world, node.id)].map((id) => {
         const neighbor = this.world.nodes.find((candidate) => candidate.id === id)!;

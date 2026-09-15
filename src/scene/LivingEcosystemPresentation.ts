@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { relatedNodeIds } from "../story/livingEcosystemState";
 import type { CameraState, StoryWorldDefinition, Vec3Tuple } from "../world/world.schema";
+import { ProductIdentityField } from "./ProductIdentityField";
 
 type Visual = { group: THREE.Group; focusShell: THREE.Mesh };
 type SavedVisual = { position: THREE.Vector3; scale: THREE.Vector3; visible: boolean; focus: boolean };
@@ -32,6 +33,7 @@ export function ecosystemCamera(portrait: boolean): CameraState {
 /** Reuses the existing semantic objects; owns only a reversible presentation and 13 quiet fragments. */
 export class LivingEcosystemPresentation {
   readonly group = new THREE.Group();
+  private readonly productField = new ProductIdentityField();
   private readonly edges = new THREE.Group();
   private readonly resting = new THREE.LineBasicMaterial({ color: "#a5e2eb", transparent: true, opacity: 0.11, depthWrite: false });
   private readonly focused = new THREE.LineBasicMaterial({ color: "#ddfbff", transparent: true, opacity: 0.48, depthWrite: false });
@@ -62,12 +64,13 @@ export class LivingEcosystemPresentation {
     this.veil.renderOrder = 100;
     this.veil.visible = false;
     this.edges.visible = false;
-    this.group.add(this.edges, this.veil);
+    this.group.add(this.edges, this.veil, this.productField.group);
   }
   get isOpen(): boolean { return this.phase === "entering" || this.phase === "open"; }
   get isTransitioning(): boolean { return this.phase === "entering" || this.phase === "leaving"; }
   get inspection() {
     return { phase: this.phase, selectedNodeId: this.selected, fieldLight: this.light,
+      productIdentityId: this.productField.group.visible ? this.selected : undefined,
       relationshipIds: this.world.relationships.map((r) => r.id),
       emphasizedRelationshipIds: this.world.relationships.filter((r) => r.from === this.selected || r.to === this.selected).map((r) => r.id) };
   }
@@ -92,6 +95,7 @@ export class LivingEcosystemPresentation {
   leave(reduced: boolean, now: number): void {
     this.phase = "leaving"; this.started = now; this.duration = reduced ? 0 : 650;
     this.selected = undefined;
+    this.productField.select();
     this.restore(); this.edges.visible = false;
     this.update(now, reduced);
   }
@@ -119,6 +123,7 @@ export class LivingEcosystemPresentation {
   /** Own resources only; reused semantic meshes still belong to StoryScene. */
   dispose(): void {
     this.restore();
+    this.productField.dispose();
     this.group.removeFromParent();
     this.edges.children.forEach((object) => (object as THREE.LineSegments).geometry.dispose());
     this.veil.geometry.dispose(); this.veilMaterial.dispose();
@@ -156,6 +161,7 @@ export class LivingEcosystemPresentation {
     this.edges.visible = true; this.emphasize();
   }
   private emphasize(reveal = 1): void {
+    this.productField.select(this.selected, this.selected ? this.visuals.get(this.selected)?.group.position : undefined, this.portrait);
     const neighbors = relatedNodeIds(this.world, this.selected);
     this.visuals.forEach((visual, id) => {
       const strength = !this.selected || this.selected === id ? 1 : neighbors.has(id) ? 0.78 : id === "human" ? 0.6 : 0.23;

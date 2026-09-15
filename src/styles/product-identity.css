@@ -1,0 +1,30 @@
+/* Product accents appear only in a selected Living Ecosystem detail. */
+.ecosystem-node[aria-pressed="true"] { border-color: var(--product-accent, #bdeffc); }
+.ecosystem-detail.is-product { width: 330px; max-height: min(60vh, 540px); border-top: 2px solid var(--product-accent); background: linear-gradient(145deg, rgba(20,43,60,.97), rgba(5,25,43,.96)); scrollbar-width: thin; scrollbar-color: #8baebd66 transparent; }
+.ecosystem-detail.is-product:focus-visible { outline: 2px solid var(--product-accent); outline-offset: 3px; }
+.ecosystem-detail.is-product .ecosystem-detail-heading { display: flex; align-items: center; gap: .8rem; }
+.ecosystem-product-mark { flex: 0 0 42px; object-fit: contain; border-radius: .65rem; background: #f4f8fa; padding: 4px; }
+.ecosystem-detail .ecosystem-product-name { font-size: .68rem; letter-spacing: .025em; margin: 0 0 .35rem; color: var(--product-accent); }
+.ecosystem-detail.is-product .ecosystem-role { margin: .25rem 0 0; font-size: .76rem; color: var(--product-accent); }
+.ecosystem-detail.is-product .ecosystem-description { margin-top: .85rem; }
+.ecosystem-product-story { border-top: 1px solid #c6e5ed22; padding-top: .65rem; margin-top: .75rem; }
+.ecosystem-product-story summary { cursor: pointer; font-size: .8rem; color: var(--product-accent); min-height: 28px; }
+.ecosystem-product-story summary:focus-visible { outline: 2px solid var(--product-accent); outline-offset: 3px; border-radius: .2rem; }
+.ecosystem-product-story dl { margin: .7rem 0; }
+.ecosystem-product-story dt { font-size: .65rem; letter-spacing: .04em; color: var(--product-accent); margin-top: .8rem; }
+.ecosystem-product-story dd { margin: .3rem 0 0; font-size: .83rem; line-height: 1.6; color: #cee4eb; }
+.ecosystem-detail .ecosystem-product-principle { border-left: 2px solid var(--product-accent); padding-left: .7rem; margin: 1rem 0 .4rem; color: #eef6f7; }
+.ecosystem-detail[data-product="mindhome"] { background: linear-gradient(145deg, rgba(45,53,53,.97), rgba(19,37,43,.96)); }
+.ecosystem-detail[data-product="mhb"] { background: linear-gradient(145deg, rgba(44,39,68,.97), rgba(13,34,51,.96)); }
+.ecosystem-detail[data-product="wave-glass-project-h"] { background: linear-gradient(145deg, rgba(20,53,55,.97), rgba(8,32,48,.96)); }
+.ecosystem-detail[data-product="wave-glass-project-h"] .ecosystem-product-mark { padding: 0; }
+@media (max-width: 680px) {
+  .ecosystem-detail.is-product { width: auto; max-height: min(28svh, 240px); padding: .75rem .9rem; }
+  .ecosystem-product-mark { width: 34px; height: 34px; flex-basis: 34px; border-radius: .45rem; }
+  .ecosystem-detail.is-product .ecosystem-detail-heading { gap: .6rem; }
+  .ecosystem-detail.is-product .ecosystem-role { font-size: .69rem; }
+  .ecosystem-detail.is-product .ecosystem-description { margin-top: .55rem; }
+  .ecosystem-product-story { margin-top: .5rem; padding-top: .45rem; }
+  .ecosystem-product-story dd { font-size: .77rem; }
+  .living-ecosystem.is-fallback:has(.ecosystem-detail.is-product:not([hidden])) .ecosystem-list { bottom: calc(min(28svh, 240px) + 5rem); }
+}

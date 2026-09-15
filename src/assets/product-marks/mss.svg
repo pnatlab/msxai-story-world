@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Mindful System Studio B1-R2 Wide Valley master mark</title>
+  <desc id="desc">Production-candidate master only. The B1-R2 folded mark uses a wide valley and central negative-space interaction cut.</desc>
+  <mask id="b1-r2-cut" maskUnits="userSpaceOnUse">
+    <rect width="128" height="128" fill="#fff"/>
+    <path d="M51 53 77 79M77 53 51 79" stroke="#000" stroke-width="9" stroke-linecap="round"/>
+  </mask>
+  <path fill="#1769C2" mask="url(#b1-r2-cut)" d="M12 110V19h25l27 31 27-31h25v91H88V63L74 82H54L40 63v47H12Z"/>
+</svg>

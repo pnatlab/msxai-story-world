@@ -1,5 +1,6 @@
 import "./styles/story-world.css";
 import "./styles/foundational-opening.css";
+import "./styles/product-identity.css";
 import { FoundationalOpening } from "./ui/FoundationalOpening";
 import { InteractionSound } from "./audio/interactionSound";
 import { observeReducedMotion, prefersReducedMotion } from "./platform/reducedMotion";

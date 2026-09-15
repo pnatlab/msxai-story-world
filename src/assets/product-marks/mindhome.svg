@@ -1,0 +1,27 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">MindHome by MSxAI Symbol</title>
+  <desc id="desc">Minimal lotus symbol inside a thin circular outline with a soft blue-grey glass gradient.</desc>
+  <defs>
+    <linearGradient id="msxaiGradient" x1="28" y1="22" x2="100" y2="106" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#BFD8E5"/>
+      <stop offset="1" stop-color="#6F9BB2"/>
+    </linearGradient>
+    <radialGradient id="msxaiSoftGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(64 66) rotate(90) scale(54)">
+      <stop offset="0" stop-color="#F7FBFD" stop-opacity="0.94"/>
+      <stop offset="1" stop-color="#F7FBFD" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softShadow" x="12" y="12" width="104" height="104" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#6F9BB2" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+  <circle cx="64" cy="64" r="58" fill="url(#msxaiSoftGlow)"/>
+  <circle cx="64" cy="64" r="52" stroke="url(#msxaiGradient)" stroke-width="2.2"/>
+  <g filter="url(#softShadow)">
+    <path d="M64 31C72.3 41.2 76.6 51.1 76.6 60.8C76.6 73.1 70.8 82.1 64 88.8C57.2 82.1 51.4 73.1 51.4 60.8C51.4 51.1 55.7 41.2 64 31Z" fill="url(#msxaiGradient)" fill-opacity="0.86"/>
+    <path d="M37.6 52.4C49.2 54.7 58.4 59.3 64.7 66.2C72.2 74.4 74.2 84 73 93.4C63.9 92.2 54.4 88.9 47.4 81.2C41.5 74.7 38.3 65 37.6 52.4Z" fill="url(#msxaiGradient)" fill-opacity="0.58"/>
+    <path d="M90.4 52.4C78.8 54.7 69.6 59.3 63.3 66.2C55.8 74.4 53.8 84 55 93.4C64.1 92.2 73.6 88.9 80.6 81.2C86.5 74.7 89.7 65 90.4 52.4Z" fill="url(#msxaiGradient)" fill-opacity="0.58"/>
+    <path d="M24.8 71.6C38 70.6 49.2 72.9 58.1 78.4C66 83.2 70.8 90 73.4 98.2C63.8 101.1 53.2 100.5 43.3 94.4C35.1 89.4 29.2 81.7 24.8 71.6Z" fill="url(#msxaiGradient)" fill-opacity="0.38"/>
+    <path d="M103.2 71.6C90 70.6 78.8 72.9 69.9 78.4C62 83.2 57.2 90 54.6 98.2C64.2 101.1 74.8 100.5 84.7 94.4C92.9 89.4 98.8 81.7 103.2 71.6Z" fill="url(#msxaiGradient)" fill-opacity="0.38"/>
+    <path d="M42.2 96.6C49.7 101.8 57 104.4 64 104.4C71 104.4 78.3 101.8 85.8 96.6" stroke="#24465B" stroke-opacity="0.34" stroke-width="2.4" stroke-linecap="round"/>
+  </g>
+</svg>
