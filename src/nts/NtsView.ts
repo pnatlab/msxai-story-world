@@ -22,13 +22,13 @@ export class NtsView {
   }, private readonly fallback: boolean) {
     this.element.className = "nts-view"; this.element.hidden = true;
     this.element.setAttribute("aria-labelledby", "nts-title");
-    this.element.innerHTML = `<header class="nts-heading"><p class="nts-eyebrow">NuTuenSai · PRIVATE PROTOTYPE</p><h1 id="nts-title" tabindex="-1"></h1><p data-nts="note"></p><div class="nts-tools"><button type="button" data-nts="en">EN</button><button type="button" data-nts="th">TH</button><button type="button" data-nts="dom"></button></div></header>
+    this.element.innerHTML = `<header class="nts-heading"><p class="nts-eyebrow">NTS • STORY WORLD</p><h1 id="nts-title" tabindex="-1"></h1><p data-nts="note"></p><div class="nts-tools"><button type="button" data-nts="en">EN</button><button type="button" data-nts="th">TH</button><button type="button" data-nts="dom"></button></div></header>
       <div class="nts-arrival" aria-live="polite" hidden></div>
       <figure class="nts-dom-image" hidden><img width="667" height="1000" draggable="false"><figcaption></figcaption></figure>
       <section class="nts-caption" hidden aria-labelledby="nts-memory-title"><p class="nts-eyebrow" data-nts="image"></p><h2 id="nts-memory-title"></h2><p class="nts-authored"></p><p class="nts-setting" hidden></p><button type="button" data-nts="close-reading"></button></section>
       <section class="nts-intro" hidden aria-labelledby="nts-intro-title"><p data-nts="intro-label"></p><h2 id="nts-intro-title" tabindex="-1">NuTuenSai</h2><p class="nts-authored"></p><button type="button" data-nts="close-intro"></button></section>
       <section class="nts-presence-controls"><p data-nts="presence"></p><div><button type="button" data-nts="meet"></button><button type="button" data-nts="inspect"></button></div><div class="nts-angles" hidden><button type="button" data-angle="front"></button><button type="button" data-angle="left"></button><button type="button" data-angle="right"></button></div><p class="nts-status" aria-live="polite"></p></section>
-      <footer class="nts-footer"><nav class="nts-memory-nav"></nav><p class="nts-closing" hidden></p><div class="nts-return-row"><small data-nts="agency"></small><button type="button" data-nts="return"></button></div><details class="nts-meaning"><summary>Gallery / Presence / Field</summary><p class="nts-presence-meaning"></p><p data-nts="field"></p><p data-nts="private"></p></details></footer>`;
+      <footer class="nts-footer"><nav class="nts-memory-nav"></nav><p class="nts-closing" hidden></p><div class="nts-return-row"><small data-nts="agency"></small><button type="button" data-nts="return"></button></div><details class="nts-meaning"><summary>Gallery / Presence / Field</summary><p class="nts-presence-meaning"></p><p data-nts="field"></p><p data-nts="progression"></p></details></footer>`;
     this.element.querySelector<HTMLElement>(".nts-caption")!.tabIndex = 0;
     const readingHint = document.createElement("p"); readingHint.className = "nts-reading-hint";
     this.element.querySelector(".nts-caption h2")!.after(readingHint);
@@ -148,7 +148,7 @@ export class NtsView {
     this.element.classList.toggle("is-reading", state.reading);
     this.element.dataset.phase = state.phase;
     this.element.querySelector("h1")!.textContent = c.title;
-    for (const key of ["note", "image", "presence", "agency", "field", "private"] as const) this.element.querySelector(`[data-nts="${key}"]`)!.textContent = c[key];
+    for (const key of ["note", "image", "presence", "agency", "field", "progression"] as const) this.element.querySelector(`[data-nts="${key}"]`)!.textContent = c[key];
     this.element.querySelector(".nts-presence-meaning")!.textContent = c.presence;
     for (const [key, value] of Object.entries({ return: c.return, meet: c.meet, inspect: state.inspection ? c.leaveInspection : c.inspect, dom: dom ? c.spatial : c.dom, "close-intro": c.close, "close-reading": c.hideReading, "intro-label": c.introLabel })) this.element.querySelector(`[data-nts="${key}"]`)!.textContent = value;
     for (const angle of ["front", "left", "right"] as const) { const b = this.element.querySelector<HTMLButtonElement>(`[data-angle="${angle}"]`)!; b.textContent = c[angle]; b.setAttribute("aria-pressed", String(state.inspection === angle)); }

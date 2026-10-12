@@ -17,7 +17,16 @@ test("one-click production destination preserves reviewed composition and return
   expect(assetRequests).toEqual([]);
   const before = (await state(page)).storyState;
   await page.locator('[data-nutuensai-entry="home"]').click(); await settled(page);
+  await expect(page.locator('.nts-heading .nts-eyebrow')).toHaveText('NTS • STORY WORLD');
   await expect(page.locator('#nts-title')).toHaveText("NTS · A place to listen");
+  await page.locator('.nts-meaning summary').click();
+  await expect(page.locator('[data-nts="progression"]')).toHaveText('Thematic progression · not a historical timeline');
+  await page.locator('[data-nts="th"]').click();
+  await expect(page.locator('.nts-heading .nts-eyebrow')).toHaveText('NTS • STORY WORLD');
+  await expect(page.locator('[data-nts="progression"]')).toHaveText('ลำดับเชิงธีม · ไม่ใช่เส้นเวลาประวัติศาสตร์');
+  await expect(page.locator('.nts-view')).not.toContainText(/private prototype/i);
+  await page.locator('[data-nts="en"]').click();
+  await page.locator('.nts-meaning summary').click();
   await expect(page.locator('canvas')).toHaveCount(1);
   await page.screenshot({path:"/private/tmp/nts-slice-b-evidence/01-overview.png"});
   await page.locator('[data-nts-memory="s1"]').click(); await page.waitForTimeout(1000);
