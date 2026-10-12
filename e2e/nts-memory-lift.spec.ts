@@ -1,0 +1,90 @@
+import { test, expect, type Page } from '@playwright/test';
+import { FOUNDATIONAL_SESSION_KEY } from '../src/ui/foundationalOpeningModel';
+const inspect=(page:Page)=>page.evaluate(()=>(() => { const r = window.__MSXAI_STORY_WORLD__!.inspect(); return { state: r.ntsState, scene: "nts" in r ? { ...r, nts: r.nts! } : undefined, ecosystem: r.overviewState, story: r.storyState, locale: document.documentElement.lang, sound: document.querySelector('[data-action="sound"]')?.getAttribute('aria-pressed') === 'true' }; })());
+const lift=(page:Page)=>page.locator('.nts-memory-lift');
+async function arrive(page:Page,url='/') {
+  await page.addInitScript(key=>sessionStorage.setItem(key,'seen'),FOUNDATIONAL_SESSION_KEY);
+  await page.goto(url);
+  await page.locator(`${url.includes('forceNoWebgl')?'.story-list':'.entry-card'} [data-action="living-ecosystem"]`).click();
+  await expect.poll(async()=>(await inspect(page)).scene?.renderLoopActive??false).toBe(false);
+  if(url.includes('forceNoWebgl')) await page.locator('.ecosystem-list [data-ecosystem-node="nutuensai"]').click();
+  else await page.evaluate(()=>window.__MSXAI_STORY_WORLD__!.selectNode('nutuensai'));
+  await page.locator('[data-ecosystem="visit-nts"]').click();
+  await expect.poll(async()=>(await inspect(page)).state.phase).toBe('settled');
+  await expect.poll(async()=>(await inspect(page)).scene?.renderLoopActive??false).toBe(false);
+}
+test('desktop lift source→focus, deterministic rapid selection, interruption and keyboard',async({page})=>{
+  test.setTimeout(45000); const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.setViewportSize({width:1440,height:900});await arrive(page);
+  const before=await inspect(page);
+  await page.locator('[data-nts-memory="s1"]').click();await expect(lift(page)).toHaveCount(1);
+  await page.waitForTimeout(200);await page.screenshot({path:'/private/tmp/nts-slice-b-evidence/2j3-desktop-lifting.png'});
+  await expect(lift(page)).toHaveCount(0);await page.locator('[data-nts-memory="s2"]').click();
+  await expect(lift(page)).toHaveAttribute('src',/s2-preview/);
+  const start=(await lift(page).boundingBox())!;await page.waitForTimeout(220);
+  const middle=(await lift(page).boundingBox())!;expect(middle.y).toBeLessThan(start.y);expect(middle.width).toBeGreaterThan(start.width);
+  await page.screenshot({path:'/private/tmp/nts-slice-b-evidence/2j3-desktop-s1-to-s2.png'});
+  await expect(lift(page)).toHaveCount(0);
+  await page.locator('[data-nts-memory="s1"]').click();await page.waitForTimeout(70);
+  await page.locator('[data-nts-memory="s6"]').click();await expect(lift(page)).toHaveCount(1);
+  await expect(lift(page)).toHaveAttribute('src',/s6-preview/);
+  await page.locator('[data-nts-memory="s3"]').click();await expect(lift(page)).toHaveCount(1);
+  await expect(lift(page)).toHaveAttribute('src',/s3-preview/);await expect(page.locator('#nts-memory-title')).toHaveText('Another Language');
+  await expect(lift(page)).toHaveCount(0);
+  expect((await inspect(page)).story).toEqual(before.story);expect((await inspect(page)).ecosystem).toEqual(before.ecosystem);
+  const inactive=await page.locator('[data-nts-memory="s1"] img').evaluate(e=>getComputedStyle(e).opacity);
+  const selected=await page.locator('[data-nts-memory="s3"] img').evaluate(e=>getComputedStyle(e).opacity);
+  expect(Number(inactive)).toBeLessThan(Number(selected));
+  await page.screenshot({path:'/private/tmp/nts-slice-b-evidence/2j3-desktop-settled.png'});
+  await page.locator('[data-nts-memory="s5"]').focus();await page.keyboard.press('Enter');await expect(lift(page)).toHaveCount(1);
+  await page.keyboard.press('Escape');await expect(lift(page)).toHaveCount(0);expect((await inspect(page)).state.reading).toBe(false);
+  await page.locator('[data-nts-memory="s4"]').click();await expect(lift(page)).toHaveCount(1);
+  await page.locator('[data-nts="return"]').click();await expect(lift(page)).toHaveCount(0);
+  await expect.poll(async()=>(await inspect(page)).state.phase).toBe('closed');
+  await expect(page.locator('[data-ecosystem="visit-nts"]')).toBeFocused();expect(errors).toEqual([]);
+});
+test('portrait lift, locale, reduced-motion preference change, direct static selection and resize',async({page})=>{
+  await page.setViewportSize({width:390,height:844});await arrive(page);
+  await page.locator('[data-nts-memory="s1"]').click();await expect(lift(page)).toHaveCount(0);
+  await page.locator('[data-nts-memory="s6"]').click();await expect(lift(page)).toHaveCount(1);
+  await page.waitForTimeout(220);await page.screenshot({path:'/private/tmp/nts-slice-b-evidence/2j3-portrait-lifting.png'});
+  await expect(lift(page)).toHaveCount(0);await page.locator('[data-nts="th"]').click();
+  expect((await inspect(page)).state.memoryId).toBe('s6');await page.screenshot({path:'/private/tmp/nts-slice-b-evidence/2j3-portrait-settled.png'});
+  await page.locator('[data-nts-memory="s2"]').click();await expect(lift(page)).toHaveCount(1);
+  await page.emulateMedia({reducedMotion:'reduce'});await expect(lift(page)).toHaveCount(0);
+  await page.locator('[data-nts-memory="s5"]').click();await expect(lift(page)).toHaveCount(0);
+  await expect(page.locator('#nts-memory-title')).toHaveText('พื้นที่เงียบสำหรับการกลับมา');
+  await expect(page.locator('.nts-dom-image img')).toBeVisible();await page.screenshot({path:'/private/tmp/nts-slice-b-evidence/2j3-portrait-reduced.png'});
+  await page.emulateMedia({reducedMotion:'no-preference'});await page.locator('[data-nts-memory="s3"]').click();await expect(lift(page)).toHaveCount(1);
+  await page.setViewportSize({width:844,height:390});await expect(lift(page)).toHaveCount(0);
+  expect((await inspect(page)).state.memoryId).toBe('s3');
+});
+test('DOM fallback keeps lift and direct reduced-motion reading meaningful',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});await arrive(page,'/?forceNoWebgl=1');
+  await page.locator('[data-nts-memory="s2"]').click();await expect(lift(page)).toHaveCount(1);await expect(lift(page)).toHaveCount(0);
+  await expect(page.locator('.nts-dom-image img')).toBeVisible();
+  await page.emulateMedia({reducedMotion:'reduce'});await page.locator('[data-nts-memory="s6"]').click();await expect(lift(page)).toHaveCount(0);
+  await expect(page.locator('.nts-closing')).toContainText('The path stays open.');
+  await page.locator('[data-nts="return"]').click();await expect.poll(async()=>(await inspect(page)).state.phase).toBe('closed');
+});
+for (const [name,width,height] of [['desktop',1440,900],['portrait',390,844]] as const) {
+  test(`review filmstrip ${name}: preview, travelling memory and settled focus`,async({page})=>{
+    await page.setViewportSize({width,height});await arrive(page);
+    await page.locator('[data-nts-memory="s1"]').click();await expect(lift(page)).toHaveCount(0);
+    await expect.poll(async()=>(await inspect(page)).scene?.renderLoopActive??false).toBe(false);
+    const elapsed=await page.evaluate(()=>performance.now());
+    const now=new Date();await page.clock.install({time:now});await page.clock.pauseAt(now);await page.clock.runFor(elapsed);
+    await page.screenshot({path:`/private/tmp/nts-slice-b-evidence/2j3-${name}-before.png`});
+    await page.locator('[data-nts-memory="s6"]').click();
+    await page.clock.runFor(160);await expect(lift(page)).toHaveCount(1);
+    await page.screenshot({path:`/private/tmp/nts-slice-b-evidence/2j3-${name}-travel-160ms.png`});
+    const a=(await lift(page).boundingBox())!;
+    await page.clock.runFor(180);
+    await page.screenshot({path:`/private/tmp/nts-slice-b-evidence/2j3-${name}-travel-340ms.png`});
+    const b=(await lift(page).boundingBox())!;
+    expect(b.y).toBeLessThan(a.y);expect(b.width).toBeGreaterThan(a.width);
+    await page.clock.runFor(500);await expect(lift(page)).toHaveCount(0);
+    await page.screenshot({path:`/private/tmp/nts-slice-b-evidence/2j3-${name}-after.png`});
+    expect((await inspect(page)).state.memoryId).toBe('s6');
+  });
+}

@@ -67,6 +67,11 @@ button { color: inherit; }
   transition: background .18s ease, border-color .18s ease, transform .18s ease;
 }
 .primary-button { background: linear-gradient(135deg, #b6f2ff, #68bfdd); border-color: #d5f9ff; color: #062039; font-weight: 720; }
+.nutuensai-story-button { background: #5c4b72; border-color: #b5a2c5; color: #f5edfc; min-height:44px; font-weight:550; }
+.quiet-button.nutuensai-story-button:hover, .quiet-button.nutuensai-story-button:focus-visible { background:#746087; border-color:#d7c6e5; }
+.entry-card > .nutuensai-story-button { margin-top:.75rem; }
+.story-copy > .nutuensai-story-button { margin-top:.7rem; font-size:.86rem; }
+.story-list__current > .nutuensai-story-button { margin-top:.75rem; }
 .icon-button { width: 2.25rem; height: 2.25rem; padding: 0; font-size: 1.35rem; }
 .quiet-button:hover, .quiet-button:focus-visible { border-color: #b5f0ff; background: rgba(28, 82, 111, .75); }
 .primary-button:hover, .primary-button:focus-visible { transform: translateY(-1px); background: #d4f9ff; }
@@ -158,12 +163,14 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .ecosystem-heading h1 { margin: 0 0 .7rem; font-size: clamp(1.5rem, 2.5vw, 2.5rem); letter-spacing: -.025em; font-weight: 450; }
 .ecosystem-heading h1:focus { outline: none; }
 .ecosystem-intro p { margin: .3rem 0; color: #c6e7ee; line-height: 1.6; font-size: .95rem; }
+.ecosystem-journey-status { font-size:.78rem; color:#e1f2f5; border-left:1px solid #a6d6df; padding-left:.6rem; max-width:30rem; }
 .ecosystem-labels .ecosystem-node { position: absolute; transform: translateX(-50%); max-width: 150px; padding: .35rem .55rem; min-height: 36px; background: rgba(4, 25, 43, .55); border: 1px solid transparent; border-radius: .55rem; font-size: .76rem; text-align: center; }
 .ecosystem-node { color: #e0f6fc; cursor: pointer; pointer-events: auto; line-height: 1.4; }
 .ecosystem-node[data-ecosystem-node="human"] { color: #ffe2b0; }
 .ecosystem-node[aria-pressed="true"] { border-color: #bdeffc; background: rgba(28, 78, 99, .85); }
 .ecosystem-node.is-receded { color: #8daeba; background: rgba(4,25,43,.22); }
 .ecosystem-node.is-receded[data-ecosystem-node="human"] { color: #d9c5a2; }
+.living-ecosystem .ecosystem-node:disabled { opacity:1; cursor:default; }
 .ecosystem-detail { position: absolute; bottom: 6rem; right: 3%; width: 280px; max-height: 36vh; overflow: auto; padding: 1.1rem 1.2rem; border: 1px solid #a2e4f333; border-radius: 1rem; background: rgba(5, 25, 43, .86); backdrop-filter: blur(12px); pointer-events: auto; }
 .ecosystem-detail h2 { margin: 0; font-size: 1.15rem; font-weight: 500; }
 .ecosystem-detail p { font-size: .85rem; line-height: 1.55; margin: .55rem 0; color: #c6e5ed; }

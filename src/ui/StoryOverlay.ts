@@ -4,9 +4,11 @@ import { localizedBeat, localizedNode, localizedNextLabel, localizedTruthfulness
 import type { StoryWorldDefinition } from "../world/world.schema";
 import { createAccessibleStoryView } from "./AccessibleStoryView";
 import { FOUNDATIONAL_ATTRIBUTION, FOUNDATIONAL_QUOTE } from "./foundationalOpeningModel";
+import type { NutuensaiStorySource } from "../story/nutuensaiStoryJourney";
 
 export interface OverlayActions {
   readonly enterEcosystem: () => void;
+  readonly startNutuensaiStory: (source: NutuensaiStorySource, trigger: HTMLButtonElement) => void;
   readonly beginStory: () => void;
   readonly exploreFreely: () => void;
   readonly resumeStory: () => void;
@@ -62,6 +64,7 @@ export class StoryOverlay {
         <p class="eyebrow" data-copy="mode"></p>
         <h1 data-copy="title"></h1>
         <div data-copy="lines"></div>
+        <button class="quiet-button nutuensai-story-button" type="button" data-action="nutuensai-story" data-nutuensai-entry="human" hidden></button>
       </section>
       <nav class="story-controls" data-copy-label="storyControls">
         <button class="quiet-button" type="button" data-action="back" data-copy="back"></button>
@@ -86,6 +89,7 @@ export class StoryOverlay {
         <button class="quiet-button" type="button" data-action="free" data-copy="free"></button>
         <button class="quiet-button" type="button" data-action="living-ecosystem"></button>
       </div>
+      <button class="quiet-button nutuensai-story-button" type="button" data-action="nutuensai-story" data-nutuensai-entry="home"></button>
       <p class="fallback-message" data-copy="fallback" role="status" hidden></p>
     `;
     this.element.append(this.entry);
@@ -129,6 +133,17 @@ export class StoryOverlay {
     overviewEntry.className = "quiet-button";
     overviewEntry.dataset.action = "living-ecosystem";
     this.storyList.element.querySelector(".story-list__actions")!.append(overviewEntry);
+    if (fallbackMessage) {
+      const equivalent = document.createElement("button"); equivalent.type = "button";
+      equivalent.className = "quiet-button nutuensai-story-button"; equivalent.dataset.action = "nutuensai-story"; equivalent.dataset.nutuensaiEntry = "fallback";
+      this.storyList.element.querySelector(".story-list__current")!.append(equivalent);
+    }
+    this.element.querySelectorAll<HTMLButtonElement>('[data-action="nutuensai-story"]').forEach(button => {
+      button.addEventListener("click", () => {
+        const source = button.dataset.nutuensaiEntry === "home" || this.currentState?.entryOpen ? "home" : "human";
+        actions.startNutuensaiStory(source, button);
+      });
+    });
     this.element.querySelectorAll('[data-action="living-ecosystem"]').forEach((button) => {
       button.addEventListener("click", actions.enterEcosystem);
     });
@@ -191,6 +206,12 @@ export class StoryOverlay {
     this.about.hidden = this.aboutReplaySuspended || !state.aboutOpen;
     this.storyList.element.hidden = !state.storyListOpen;
     this.storyList.render(state, this.locale);
+    const humanEntry = state.mode === "guided" && beat.id === "human" && !state.entryOpen;
+    const fallbackList = Boolean(this.fallbackMessage && state.storyListOpen);
+    this.element.querySelector<HTMLButtonElement>('[data-nutuensai-entry="home"]')!.hidden = state.storyListOpen || state.aboutOpen;
+    this.element.querySelector<HTMLButtonElement>('[data-nutuensai-entry="human"]')!.hidden = !humanEntry || state.storyListOpen || state.aboutOpen;
+    const equivalent = this.element.querySelector<HTMLButtonElement>('[data-nutuensai-entry="fallback"]');
+    if (equivalent) equivalent.hidden = !fallbackList || state.aboutOpen || !state.entryOpen && !humanEntry;
 
     const next = this.element.querySelector<HTMLButtonElement>('[data-action="next"]')!;
     const back = this.element.querySelector<HTMLButtonElement>('[data-action="back"]')!;
@@ -234,6 +255,7 @@ export class StoryOverlay {
     this.element.querySelector('[data-copy="foundational-statement"]')!.textContent = copy.foundationalStatement;
     this.element.querySelector('[data-copy="replay-opening"]')!.textContent = copy.replayOpening;
     this.element.querySelectorAll('[data-action="living-ecosystem"]').forEach((button) => { button.textContent = copy.livingEcosystem; });
+    this.element.querySelectorAll('[data-action="nutuensai-story"]').forEach(button => { button.textContent = copy.nutuensaiStory; });
     const opening = localizedBeat(this.world.beats[0], this.locale);
     document.title = copy.pageTitle;
     document.documentElement.lang = this.locale;

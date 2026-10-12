@@ -13,6 +13,7 @@ export interface UiCopy {
   readonly pauseOpening: string;
   readonly continueOpening: string;
   readonly livingEcosystem: string;
+  readonly nutuensaiStory: string;
   readonly exitEcosystem: string;
   readonly viewEcosystem: string;
   readonly relatedConcepts: string;
@@ -59,6 +60,7 @@ export const UI_COPY: Record<Locale, UiCopy> = {
     pauseOpening: "Pause to read",
     continueOpening: "Continue",
     livingEcosystem: "Living Ecosystem",
+    nutuensaiStory: "NuTuenSai Story",
     exitEcosystem: "Return to Story World",
     viewEcosystem: "View whole ecosystem",
     relatedConcepts: "Conceptual connections",
@@ -103,6 +105,7 @@ export const UI_COPY: Record<Locale, UiCopy> = {
     pauseOpening: "หยุดเพื่ออ่าน",
     continueOpening: "ดำเนินต่อ",
     livingEcosystem: "ภาพรวมระบบนิเวศ",
+    nutuensaiStory: "เรื่องราว NuTuenSai",
     exitEcosystem: "กลับสู่โลกเรื่องเล่า",
     viewEcosystem: "ดูระบบนิเวศทั้งหมด",
     relatedConcepts: "ความเชื่อมโยงเชิงแนวคิด",
@@ -203,3 +206,18 @@ export function localizedNextLabel(beat: StoryBeat, locale: Locale): string | un
 export function localizedWorldTitle(locale: Locale): string {
   return locale === "en" ? "MSxAI 3D Story World" : "โลกเรื่องเล่า 3 มิติของ MSxAI";
 }
+
+export const NUTUENSAI_JOURNEY_COPY = {
+  en: {
+    ecosystem: "NuTuenSai Story · Entering the Living Ecosystem",
+    focus: "NuTuenSai Story · Approaching NuTuenSai through the ecosystem",
+    recognition: "NuTuenSai · Listening & Interpretation",
+    cancelled: "Journey stopped. You can keep exploring NuTuenSai here.",
+  },
+  th: {
+    ecosystem: "เรื่องราว NuTuenSai · เข้าสู่ระบบนิเวศ",
+    focus: "เรื่องราว NuTuenSai · เดินทางผ่านระบบนิเวศสู่ NuTuenSai",
+    recognition: "NuTuenSai · การฟังและการตีความ",
+    cancelled: "หยุดการเดินทางแล้ว คุณยังสำรวจ NuTuenSai ที่นี่ได้",
+  },
+} as const;

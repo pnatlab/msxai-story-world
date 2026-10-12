@@ -1,0 +1,77 @@
+{
+  "scope": "LOCAL INTEGRATION REVIEW ONLY",
+  "publicRedistribution": "NOT APPROVED",
+  "reviewedSource": "Round 2J.3, black Round 2J representation restored in 2J.2",
+  "files": [
+    {
+      "file": "public/nts/presence-study.bin",
+      "bytes": 2669136,
+      "sha256": "5f5a477734bced44d994a60daff6fe01018f8ff464502f1ab50c3611c4d6a323"
+    },
+    {
+      "file": "public/nts/presence-study.json",
+      "bytes": 4887,
+      "sha256": "24f38be2e28ce9fcdae155a629666633bb5b6e7c2623a928229ccd46cb948de9"
+    },
+    {
+      "file": "public/nts/s1-preview.jpg",
+      "bytes": 8077,
+      "sha256": "e5e5432b6c30d7e9d22cf66cd3ac70c76d92954a003aed573ae4eb1b42014434"
+    },
+    {
+      "file": "public/nts/s1.jpg",
+      "bytes": 90731,
+      "sha256": "7180f93e8c8bca695cdd1143ac43e05a17b5487749358d92fdb961e2f6c54c12"
+    },
+    {
+      "file": "public/nts/s2-preview.jpg",
+      "bytes": 11968,
+      "sha256": "d9924e2a041616eeb4e1a39913ff98c879a10e380903ce670fef6070c48624f9"
+    },
+    {
+      "file": "public/nts/s2.jpg",
+      "bytes": 133850,
+      "sha256": "941d48bd970e85820a1eddef64e8b10f8d9360f7d49c7d4fcddf95476df0a742"
+    },
+    {
+      "file": "public/nts/s3-preview.jpg",
+      "bytes": 8955,
+      "sha256": "95b81cd36753c9f5fe5c40c6ee96061c0665aec925a2bb69824369026a7f9d6e"
+    },
+    {
+      "file": "public/nts/s3.jpg",
+      "bytes": 95177,
+      "sha256": "d15b5dbd5d0d770e0eabca1cdc4ddeec6b6e7ee96f97765a8da5b8971dab5673"
+    },
+    {
+      "file": "public/nts/s4-preview.jpg",
+      "bytes": 7419,
+      "sha256": "4b91979091ec96c97a8072c42242ac584526ea7a4c3a50bdf4753927c8bc8319"
+    },
+    {
+      "file": "public/nts/s4.jpg",
+      "bytes": 84269,
+      "sha256": "8042004ec79ee1350bcc1a7c265dbd196d1925f605d99613361e1019eec300d2"
+    },
+    {
+      "file": "public/nts/s5-preview.jpg",
+      "bytes": 10495,
+      "sha256": "ac67221ef85dd2af6eef729ed9804ffc9f4eb7d85e5b58a395a40a17a2f6d981"
+    },
+    {
+      "file": "public/nts/s5.jpg",
+      "bytes": 128114,
+      "sha256": "3d7f031c0ae140d998d8b32e68ed224fb8090bac060cb061a5f8e82c9dafd378"
+    },
+    {
+      "file": "public/nts/s6-preview.jpg",
+      "bytes": 14129,
+      "sha256": "7d8f21a23f33f45fc837159c613bf053abb3fa70f054806b82cd4c06540c8b35"
+    },
+    {
+      "file": "public/nts/s6.jpg",
+      "bytes": 211774,
+      "sha256": "ba7690e28b67c0a8edc23d845c00225935e1b15360418464d6b8825f952f5b87"
+    }
+  ]
+}

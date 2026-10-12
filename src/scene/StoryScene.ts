@@ -6,6 +6,9 @@ import { frameForAspect, intentionCoherence } from "./cameraFraming";
 import { createUranianEnvironment } from "./uranianEnvironment";
 import type { StoryState } from "../story/storyState";
 import type { CameraState, Relationship, StoryWorldDefinition, WorldNode } from "../world/world.schema";
+import type { NtsPresentation } from "../nts/NtsPresentation";
+import type { NtsState } from "../nts/visitState";
+import type { MemoryId } from "../nts/content";
 
 export interface SceneInspection {
   readonly rendererType: "WebGLRenderer";
@@ -30,6 +33,8 @@ export interface SceneInspection {
   readonly transportObjectCount: number;
   readonly intentionCoherence: number;
   readonly livingEcosystem: LivingEcosystemPresentation["inspection"];
+  readonly nts?: NtsPresentation["inspection"];
+  readonly gpu: { geometries: number; textures: number };
 }
 
 export interface StorySceneOptions {
@@ -38,6 +43,10 @@ export interface StorySceneOptions {
   readonly onSelectNode: (nodeId: string) => void;
   readonly onRender: () => void;
   readonly onClearSelection?: () => void;
+  readonly onNtsPresence?: () => void;
+  readonly onNtsMemory?: (id: MemoryId) => void;
+  readonly onNtsImageFailure?: (id: MemoryId) => void;
+  readonly onNtsPresenceFailure?: () => void;
 }
 
 type NodeVisual = {
@@ -90,11 +99,18 @@ export class StoryScene {
   private readonly projectionVector = new THREE.Vector3();
   private lastPortrait = false;
   private allowManualControl = false;
+  private nutuensaiJourneyActive = false;
+  private nutuensaiJourneyFocused = false;
   private readonly ecosystem: LivingEcosystemPresentation;
   private savedCamera?: CameraState;
   private savedPortrait = false;
   private readonly overviewBackground = new THREE.Color("#102c41");
   private readonly frameBackground = new THREE.Color();
+  private readonly ntsBackground = new THREE.Color("#557780");
+  private nts?: NtsPresentation;
+  private ntsState?: NtsState;
+  private ntsGeneration = 0;
+  private ntsLoadFailed = false;
 
   public constructor(private readonly container: HTMLElement, private readonly options: StorySceneOptions) {
     this.reducedMotion = options.reducedMotion;
@@ -192,10 +208,11 @@ export class StoryScene {
       this.ecosystem.enter(this.lastPortrait, this.reducedMotion, now);
       this.relationshipVisuals.forEach(({ group }) => { group.visible = false; });
       this.ambientVisuals.forEach(({ object }) => { object.visible = (object as THREE.InstancedMesh).isInstancedMesh === true; });
-      this.allowManualControl = true;
+      this.allowManualControl = !this.nutuensaiJourneyActive;
       this.applyViewOffset();
       this.director.moveTo(ecosystemCamera(this.lastPortrait), this.reducedMotion);
     } else {
+      this.nutuensaiJourneyFocused = false;
       this.ecosystem.leave(this.reducedMotion, now);
       if (this.currentState) this.present(this.currentState, false);
       this.applyViewOffset();
@@ -207,6 +224,62 @@ export class StoryScene {
   }
 
   public selectEcosystemNode(id?: string): void { this.ecosystem.select(id); this.requestRender(); }
+
+  public async enterNts(): Promise<void> {
+    if (!this.ecosystem.isOpen || this.nts) return;
+    const generation = ++this.ntsGeneration;
+    this.ntsLoadFailed = false;
+    this.allowManualControl = false; this.director.controls.enabled = false;
+    try {
+      const { NtsPresentation } = await import("../nts/NtsPresentation");
+      if (this.disposed || generation !== this.ntsGeneration) return;
+      this.nts = new NtsPresentation(this.scene, this.director, () => this.requestRender(), id => this.options.onNtsImageFailure?.(id), () => this.options.onNtsPresenceFailure?.());
+      this.nts.enter(this.nodeVisuals.get("nutuensai")!.group.position.clone(), this.lastPortrait, this.reducedMotion, true);
+      if (this.ntsState) this.nts.setState(this.ntsState, this.reducedMotion);
+      this.fieldMotionUntil = performance.now() + (this.reducedMotion ? 0 : 1650);
+      this.requestRender();
+    } catch {
+      if (this.disposed || generation !== this.ntsGeneration) return;
+      this.ntsLoadFailed = true; this.options.onNtsPresenceFailure?.(); this.requestRender();
+    }
+  }
+  public get ntsSettled(): boolean { return this.ntsLoadFailed || Boolean(this.nts && !this.nts.transitioning && !this.director.isTransitioning); }
+  public get ntsReturnSettled(): boolean { return !this.nts || (!this.nts.transitioning && !this.director.isTransitioning); }
+  public presentNts(state: NtsState): void { this.ntsState = state; this.nts?.setState(state, this.reducedMotion); this.requestRender(); }
+  public projectNts() { return this.nts?.project(this.container.clientWidth, this.container.clientHeight); }
+  public setNtsMemoryLift(active: boolean): void { this.nts?.setMemoryLift(active); }
+  public returnFromNts(): void {
+    ++this.ntsGeneration;
+    this.ecosystem.resize(this.lastPortrait);
+    this.nts?.beginReturn(this.reducedMotion, this.ecosystem.journeyCamera());
+    this.fieldMotionUntil = performance.now() + (this.reducedMotion ? 0 : 700); this.requestRender();
+  }
+  public finishNtsReturn(): void {
+    this.allowManualControl = this.nts?.finishReturn() ?? true;
+    this.nts?.dispose(); this.nts = undefined; this.ntsState = undefined;
+    this.applyViewOffset(); this.requestRender();
+  }
+
+  public get ecosystemSettled(): boolean { return this.ecosystem.isOpen && !this.ecosystem.isTransitioning && !this.director.isTransitioning; }
+  public setNutuensaiJourneyActive(active: boolean): void {
+    this.nutuensaiJourneyActive = active;
+    this.allowManualControl = this.ecosystem.isOpen ? !active : this.getCameraStateForCurrentBeat().allowManualControl;
+    this.director.controls.enabled = !active && this.allowManualControl && !this.director.isTransitioning;
+    this.requestRender();
+  }
+  public focusNutuensaiJourney(immediate = false): void {
+    if (!this.ecosystem.isOpen) return;
+    if (immediate && this.ecosystem.isTransitioning) this.ecosystem.update(performance.now(), true);
+    this.nutuensaiJourneyFocused = true;
+    this.allowManualControl = !this.nutuensaiJourneyActive;
+    this.director.moveTo({ ...this.ecosystem.journeyCamera(), allowManualControl: this.allowManualControl }, immediate);
+    this.requestRender();
+  }
+  public releaseNutuensaiJourneyFocus(): void {
+    if (!this.nutuensaiJourneyFocused || !this.ecosystem.isOpen) return;
+    this.nutuensaiJourneyFocused = false; this.allowManualControl = true;
+    this.director.moveTo({ ...ecosystemCamera(this.lastPortrait), durationMs: 650 }); this.requestRender();
+  }
 
   public setReducedMotion(reduced: boolean): void {
     this.reducedMotion = reduced;
@@ -273,12 +346,15 @@ export class StoryScene {
       transportObjectCount,
       intentionCoherence: this.coherence,
       livingEcosystem: this.ecosystem.inspection,
+      nts: this.nts?.inspection,
+      gpu: { geometries: this.renderer.info.memory.geometries, textures: this.renderer.info.memory.textures },
     };
   }
 
   public dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    ++this.ntsGeneration; this.nts?.dispose(); this.nts = undefined;
     this.setActive(false);
     this.resizeObserver.disconnect();
     this.renderer.domElement.removeEventListener("pointerdown", this.onPointerDown);
@@ -745,11 +821,12 @@ export class StoryScene {
     this.animationFrame = undefined;
     if (!this.active || this.disposed) return;
     const transitioning = this.director.update(now, this.allowManualControl);
-    const animate = !this.reducedMotion && (transitioning || this.ecosystem.isTransitioning || this.fieldMotionUntil > now || this.manualInteractionUntil > now || (!this.ecosystem.isOpen && this.currentState?.mode === "free"));
+    const animate = !this.reducedMotion && (this.nts?.needsMotion || this.nts?.transitioning || transitioning || this.ecosystem.isTransitioning || this.fieldMotionUntil > now || this.manualInteractionUntil > now || (!this.ecosystem.isOpen && this.currentState?.mode === "free"));
     const light = this.ecosystem.update(now, this.reducedMotion);
     this.ocean.material.uniforms.uOverview.value = light;
-    this.renderer.setClearColor(this.frameBackground.copy(BACKGROUND).lerp(this.overviewBackground, light));
-    (this.scene.fog as THREE.FogExp2).density = THREE.MathUtils.lerp(this.lastPortrait ? 0.014 : 0.021, 0.004, light);
+    const ntsBlend = this.nts?.active ? this.nts.frame(now) : 0;
+    this.renderer.setClearColor(this.frameBackground.copy(BACKGROUND).lerp(this.overviewBackground, light).lerp(this.ntsBackground, ntsBlend));
+    (this.scene.fog as THREE.FogExp2).density = THREE.MathUtils.lerp(THREE.MathUtils.lerp(this.lastPortrait ? 0.014 : 0.021, 0.004, light), .017, ntsBlend);
     this.animateField(now);
     this.renderer.render(this.scene, this.camera);
     this.renderCount += 1;
@@ -803,9 +880,12 @@ export class StoryScene {
     this.camera.updateProjectionMatrix();
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.setSize(width, height, false);
-    if (this.ecosystem.isOpen && portrait !== this.lastPortrait) {
+    if (this.nts?.active) {
+      this.camera.clearViewOffset(); this.nts.resize(portrait, this.reducedMotion);
+    } else if (this.ecosystem.isOpen && portrait !== this.lastPortrait) {
       this.ecosystem.resize(portrait);
-      this.director.moveTo(ecosystemCamera(portrait), true);
+      const pose = this.nutuensaiJourneyFocused ? this.ecosystem.journeyCamera() : ecosystemCamera(portrait);
+      this.director.moveTo({ ...pose, allowManualControl: !this.nutuensaiJourneyActive }, true);
     } else if (this.currentState && portrait !== this.lastPortrait) {
       this.director.moveTo(this.getCameraStateForCurrentBeat(), true);
     }
@@ -817,7 +897,8 @@ export class StoryScene {
     const width = Math.max(this.container.clientWidth, 1);
     const height = Math.max(this.container.clientHeight, 1);
     const portrait = width / height < 0.85;
-    if (this.ecosystem.isOpen) this.camera.setViewOffset(width, height, 0, -height * (portrait ? 0.01 : 0.04), width, height);
+    if (this.nts?.active) this.camera.clearViewOffset();
+    else if (this.ecosystem.isOpen) this.camera.setViewOffset(width, height, 0, -height * (portrait ? 0.01 : 0.04), width, height);
     else if (portrait) this.camera.setViewOffset(width, height, 0, -height * 0.15, width, height);
     else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
@@ -828,6 +909,7 @@ export class StoryScene {
   };
 
   private readonly onPointerMove = (event: PointerEvent): void => {
+    if (this.ntsState?.phase !== "closed" && this.ntsState) return;
     if (this.director.controls.enabled) {
       this.manualInteractionUntil = performance.now() + 260;
       this.requestRender();
@@ -849,6 +931,15 @@ export class StoryScene {
     const start = this.pointerStart;
     this.pointerStart = undefined;
     if (!start || start.distanceTo(new THREE.Vector2(event.clientX, event.clientY)) > 8 || this.director.isTransitioning) return;
+    if (this.ntsState && this.ntsState.phase !== "closed") {
+      const rect = this.renderer.domElement.getBoundingClientRect();
+      this.pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+      this.raycaster.setFromCamera(this.pointer, this.camera);
+      const selection = this.nts?.pick(this.raycaster);
+      if (selection === "presence") this.options.onNtsPresence?.();
+      else if (selection) this.options.onNtsMemory?.(selection);
+      return;
+    }
     const nodeId = this.pickNode(event);
     if (nodeId) this.options.onSelectNode(nodeId);
     else if (this.ecosystem.isOpen) this.options.onClearSelection?.();

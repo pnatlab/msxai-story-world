@@ -1,8 +1,10 @@
-import { localizedBeat, localizedNode, UI_COPY } from "../i18n";
+import { localizedBeat, localizedNode, UI_COPY, NUTUENSAI_JOURNEY_COPY } from "../i18n";
+import type { NutuensaiJourneyState } from "../story/nutuensaiStoryJourney";
 import type { Locale } from "../story/localeState";
 import { relatedNodeIds, type LivingEcosystemState } from "../story/livingEcosystemState";
 import type { StoryWorldDefinition } from "../world/world.schema";
 import { productIdentity, PRODUCT_COPY } from "../world/productIdentity";
+import { NTS_COPY } from "../nts/content";
 
 export class LivingEcosystemView {
   readonly element = document.createElement("section");
@@ -10,9 +12,11 @@ export class LivingEcosystemView {
   private state: LivingEcosystemState = { open: false, listOpen: false };
   private readonly labels = new Map<string, HTMLButtonElement>();
   private readonly listButtons = new Map<string, HTMLButtonElement>();
+  private journey?: NutuensaiJourneyState;
   constructor(private readonly world: StoryWorldDefinition, private readonly actions: {
     select: (id?: string) => void; exit: () => void; closeList: () => void;
     project: (id: string) => { x: number; y: number; visible: boolean } | undefined;
+    visitNts: () => void;
   }, private readonly fallback: boolean) {
     this.element.className = "living-ecosystem";
     this.element.hidden = true;
@@ -35,6 +39,31 @@ export class LivingEcosystemView {
     this.element.querySelector('[data-ecosystem="exit"]')!.addEventListener("click", actions.exit);
     this.element.querySelector('[data-ecosystem="clear"]')!.addEventListener("click", () => actions.select());
     this.element.querySelector('[data-ecosystem="close-list"]')!.addEventListener("click", actions.closeList);
+    const status = document.createElement("p"); status.className = "ecosystem-journey-status"; status.setAttribute("role", "status"); status.hidden = true;
+    this.element.querySelector(".ecosystem-heading")!.append(status);
+    const visit = document.createElement("button"); visit.type = "button"; visit.className = "quiet-button"; visit.dataset.ecosystem = "visit-nts"; visit.hidden = true;
+    visit.addEventListener("click", actions.visitNts); this.element.querySelector(".ecosystem-description")!.after(visit);
+  }
+  setJourney(state: NutuensaiJourneyState): void { this.journey = state; this.refreshJourney(); }
+  focusNutuensaiArrival(): void {
+    this.element.querySelector<HTMLElement>(".ecosystem-detail h2")!.focus({ preventScroll: true });
+  }
+  focusVisitNts(): void {
+    const visit = this.element.querySelector<HTMLButtonElement>('[data-ecosystem="visit-nts"]')!;
+    if (!visit.hidden) { visit.focus({ preventScroll: true }); visit.scrollIntoView({ block: "nearest" }); }
+    else this.focusNutuensaiArrival();
+  }
+  private refreshJourney(): void {
+    const state = this.journey, copy = NUTUENSAI_JOURNEY_COPY[this.locale];
+    const active = Boolean(state && ["requested", "travelling", "recognition"].includes(state.phase));
+    const status = this.element.querySelector<HTMLElement>(".ecosystem-journey-status")!;
+    status.hidden = !active && state?.phase !== "cancelled";
+    status.textContent = state?.phase === "cancelled" ? copy.cancelled : state?.phase === "recognition" ? copy.recognition : state?.leg === "nutuensai" ? copy.focus : copy.ecosystem;
+    const visit = this.element.querySelector<HTMLButtonElement>('[data-ecosystem="visit-nts"]')!;
+    visit.hidden = this.state.selectedNodeId !== "nutuensai" || active;
+    visit.textContent = NTS_COPY[this.locale].visit;
+    this.element.querySelectorAll<HTMLButtonElement>(".ecosystem-node, .ecosystem-related button, [data-ecosystem=clear]").forEach(button => { button.disabled = active; });
+    this.element.querySelector<HTMLElement>(".ecosystem-detail h2")!.tabIndex = -1;
   }
   setLocale(locale: Locale): void { this.locale = locale; this.render(this.state); }
   focusHeading(): void { this.element.querySelector<HTMLElement>("h1")?.focus({ preventScroll: true }); }
@@ -114,6 +143,7 @@ export class LivingEcosystemView {
       }));
     }
     this.refreshLabels();
+    this.refreshJourney();
     if (state.listOpen && !previousListOpen) this.listButtons.values().next().value?.focus({ preventScroll: true });
     else if (hadFocus && (document.activeElement === document.body || (document.activeElement instanceof HTMLElement && document.activeElement.offsetParent === null))) {
       const label = state.selectedNodeId ? this.labels.get(state.selectedNodeId) : undefined;

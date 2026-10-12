@@ -30,6 +30,13 @@ export function ecosystemCamera(portrait: boolean): CameraState {
     target: portrait ? [0, 1, -6] : [0, 1, -5], fov: 45, durationMs: 1300, allowManualControl: true };
 }
 
+/** Frame the existing framework↔NuTuenSai relationship, without adding a route. */
+export function nutuensaiJourneyCamera(portrait: boolean, node: Vec3Tuple, framework: Vec3Tuple): CameraState {
+  const target = new THREE.Vector3(...node).lerp(new THREE.Vector3(...framework), portrait ? .42 : .24);
+  const position = target.clone().add(new THREE.Vector3(...(portrait ? [0, 17, 36] : [8, 8, 30])));
+  return { id: "nutuensai-ecosystem-focus", position: position.toArray() as [number, number, number], target: target.toArray() as [number, number, number], fov: portrait ? 45 : 42, durationMs: 1100, allowManualControl: false };
+}
+
 /** Reuses the existing semantic objects; owns only a reversible presentation and 13 quiet fragments. */
 export class LivingEcosystemPresentation {
   readonly group = new THREE.Group();
@@ -68,6 +75,9 @@ export class LivingEcosystemPresentation {
   }
   get isOpen(): boolean { return this.phase === "entering" || this.phase === "open"; }
   get isTransitioning(): boolean { return this.phase === "entering" || this.phase === "leaving"; }
+  journeyCamera(): CameraState {
+    return nutuensaiJourneyCamera(this.portrait, this.visuals.get("nutuensai")!.group.position.toArray() as [number, number, number], this.visuals.get("msxai")!.group.position.toArray() as [number, number, number]);
+  }
   get inspection() {
     return { phase: this.phase, selectedNodeId: this.selected, fieldLight: this.light,
       productIdentityId: this.productField.group.visible ? this.selected : undefined,
