@@ -8,6 +8,88 @@ import { compactNts, TRACE_POSITIONS, type NtsComposition, type ProjectedBox } f
 interface SnapshotObject { name: string; role: string; position: { offset: number; count: number }; normal: { offset: number; count: number }; index: { offset: number; count: number }; color?: { offset: number; count: number }; }
 type SavedControls = { minDistance: number; maxDistance: number; minPolarAngle: number; maxPolarAngle: number; minAzimuthAngle: number; maxAzimuthAngle: number; enablePan: boolean; enableZoom: boolean; enableRotate: boolean; };
 
+/** One static low braid, joined to the authored scalp in its local coordinates. */
+function lowBraidGeometry(): THREE.BufferGeometry {
+  const positions: number[] = [], indices: number[] = [];
+  const sweep = (points: THREE.Vector3[], segments: number, sides: number, radius: (t: number) => number, flatten: number): void => {
+    const curve = new THREE.CatmullRomCurve3(points);
+    const base = positions.length / 3;
+    for (let row = 0; row <= segments; row++) {
+      const t = row / segments, center = curve.getPoint(t), tangent = curve.getTangent(t);
+      const lateral = new THREE.Vector3(1, 0, 0);
+      lateral.addScaledVector(tangent, -lateral.dot(tangent)).normalize();
+      const outward = new THREE.Vector3().crossVectors(tangent, lateral).normalize();
+      for (let side = 0; side < sides; side++) {
+        const a = side / sides * Math.PI * 2;
+        const p = center.clone().addScaledVector(lateral, Math.cos(a) * radius(t)).addScaledVector(outward, Math.sin(a) * radius(t) * flatten);
+        positions.push(p.x, p.y, p.z);
+        if (row < segments) {
+          const i = base + row * sides + side, next = base + row * sides + (side + 1) % sides;
+          indices.push(i, next, i + sides, next, next + sides, i + sides);
+        }
+      }
+    }
+    for (const end of [0, segments]) {
+      const center = curve.getPoint(end / segments), cap = positions.length / 3;
+      positions.push(center.x, center.y, center.z);
+      for (let side = 0; side < sides; side++) {
+        const a = base + end * sides + side, b = base + end * sides + (side + 1) % sides;
+        indices.push(cap, end ? a : b, end ? b : a);
+      }
+    }
+  };
+  // The gathering begins inside the rear scalp and closes around the braid roots.
+  sweep([
+    new THREE.Vector3(0, 1.575, -.043),
+    new THREE.Vector3(0, 1.54, -.083),
+    new THREE.Vector3(0, 1.52, -.103),
+    new THREE.Vector3(0, 1.50, -.115),
+  ], 20, 12, t => THREE.MathUtils.lerp(.029, .021, t), .7);
+  // Wearer-left shoulder: remain behind the ear, then turn below the mask loops.
+  const path = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, 1.515, -.103),
+    new THREE.Vector3(.055, 1.492, -.102),
+    new THREE.Vector3(.090, 1.465, -.070),
+    new THREE.Vector3(.110, 1.423, -.010),
+    new THREE.Vector3(.111, 1.381, .034),
+    new THREE.Vector3(.108, 1.348, .069),
+    new THREE.Vector3(.103, 1.306, .081),
+    new THREE.Vector3(.089, 1.250, .083),
+  ]);
+  // Three continuous strands exchange left/right positions and alternate depth.
+  // They are merged into one mesh; no detached beads, simulation or moving parts.
+  for (let strand = 0; strand < 3; strand++) {
+    const points = Array.from({ length: 85 }, (_, row) => {
+      const t = row / 84, phase = t * Math.PI * 8 + strand * Math.PI * 2 / 3;
+      const taper = THREE.MathUtils.lerp(1, .4, t);
+      const center = path.getPoint(t), tangent = path.getTangent(t);
+      const lateral = new THREE.Vector3(1, 0, 0);
+      lateral.addScaledVector(tangent, -lateral.dot(tangent)).normalize();
+      const depth = new THREE.Vector3().crossVectors(tangent, lateral).normalize();
+      return center.addScaledVector(lateral, Math.sin(phase) * .019 * taper)
+        .addScaledVector(depth, Math.sin(phase * 2) * .008 * taper);
+    });
+    sweep(points, 84, 10, t => (.0095 - .003 * t) * (t > .9 ? THREE.MathUtils.lerp(1, .22, (t - .9) / .1) : 1), .85);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices); geometry.computeVertexNormals();
+  return geometry;
+}
+
+/** Keep the baked eye colors/gaze, narrowing only the aperture and its two lids. */
+function softenEyeOpening(geometry: THREE.BufferGeometry): void {
+  const original = geometry.getAttribute("position");
+  const positions = new THREE.Float32BufferAttribute(new Float32Array(original.array), 3);
+  for (let i = 0; i < positions.count; i++) {
+    const t = THREE.MathUtils.clamp((Math.abs(positions.getX(i)) - .020) / .036, 0, 1);
+    const center = 1.56925 + .0015 * t;
+    const lift = .0004 * Math.sin(Math.PI * t) + .0003 * t;
+    positions.setY(i, center + .88 * (positions.getY(i) - center) + lift);
+  }
+  geometry.setAttribute("position", positions); geometry.computeVertexNormals();
+}
+
 /** Bounded destination presentation. Reuses the renderer/director; no semantic controller. */
 export class NtsPresentation {
   readonly group = new THREE.Group();
@@ -237,15 +319,18 @@ export class NtsPresentation {
       const info = await infoResponse.json() as { objects: SnapshotObject[] };
       const response = await fetch(`${base}presence-study.bin`, { signal: this.abort.signal }); if (!response.ok) throw Error("presence mesh");
       const buffer = await response.arrayBuffer(); if (this.disposed || this.abort.signal.aborted) return;
-      const palette: Record<string, string> = { skin: "#ecd6c6", hair: "#15191e", brow: "#332a29", lid: "#94776c", mask: "#eaf2f4", print: "#6d7b86", loop: "#cddce0", body: "#151c23", eye: "#ffffff" };
+      const palette: Record<string, string> = { skin: "#ecd6c6", hair: "#15191e", brow: "#332a29", lid: "#94776c", mask: "#eaf2f4", print: "#6d7b86", loop: "#cddce0", body: "#8ea7ad", eye: "#ffffff" };
       const shared = new Map<string, THREE.MeshStandardMaterial>();
       for (const item of info.objects) {
+        // Replace only the tied fall; all other baked arrays remain untouched.
+        if (item.name === "NTS_2C_Hair_LowPonytail") continue;
         const geo = new THREE.BufferGeometry();
         for (const key of ["position", "normal", "color"] as const) if (item[key]) geo.setAttribute(key, new THREE.BufferAttribute(new Float32Array(buffer, item[key]!.offset, item[key]!.count), 3));
         geo.setIndex(new THREE.BufferAttribute(new Uint32Array(buffer, item.index.offset, item.index.count), 1)); this.geometries.add(geo);
+        if (/^NTS_2C_(Eye|Lid_Upper|Lid_Lower)_[RL]$/.test(item.name)) softenEyeOpening(geo);
         let material = shared.get(item.role);
         if (!material) {
-          material = new THREE.MeshStandardMaterial({ color: palette[item.role], roughness: .82, emissive: palette[item.role], emissiveIntensity: .055, vertexColors: item.role === "eye", transparent: item.role === "body", depthWrite: true });
+          material = new THREE.MeshStandardMaterial({ color: palette[item.role], roughness: item.role === "hair" ? .94 : .82, emissive: palette[item.role], emissiveIntensity: .055, vertexColors: item.role === "eye", transparent: item.role === "body", depthWrite: true });
           const role = item.role;
           material.onBeforeCompile = shader => {
             shader.vertexShader = "varying float vStudyHeight;\n" + shader.vertexShader;
@@ -259,6 +344,8 @@ export class NtsPresentation {
         }
         const mesh = new THREE.Mesh(geo, material); mesh.name = item.name; if (item.role === "body") mesh.renderOrder = 1; this.presence.add(mesh);
       }
+      const hairGeometry = lowBraidGeometry(); this.geometries.add(hairGeometry);
+      const braid = new THREE.Mesh(hairGeometry, shared.get("hair")!); braid.name = "NTS_Hair_LowSingleBraid"; this.presence.add(braid);
       this.presence.scale.setScalar(6); this.presence.position.set(-4.8, -4.6, 1);
       this.loaded = true; this.presence.visible = this.active && this.state?.phase === "settled" && !this.state.dom; this.changed();
     } catch { if (!this.disposed && !this.abort.signal.aborted) { this.failed = true; this.failedPresence(); } }
