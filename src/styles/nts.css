@@ -104,7 +104,11 @@
 .nts-orbit { display:flex; flex-direction:column; gap:5px; width:min(250px,65vw); font-size:11px; color:#d8eeee; }
 .nts-orbit input { width:100%; accent-color:#a9dce5; min-height:30px; pointer-events:auto; }
 .nts-angles { flex-wrap:wrap; justify-content:center; }
-.nts-appearance { position:absolute; right:calc(100% + 8px); top:22px; z-index:6; text-align:left; }
+.nts-appearance { position:relative; z-index:6; text-align:left; }
+.nts-presence-controls > div:first-of-type { align-items:center; }
+.nts-view[data-layout="spatial"] .nts-presence-controls > div:first-of-type { width:max-content; margin-inline:auto; }
+.nts-view[data-layout="spatial"] .nts-appearance { order:-1; }
+.nts-view:not(.is-inspection):not(.is-mark-inspection):not(.is-introduction):not(.is-dom) .nts-presence-controls { transform:translateY(var(--nts-controls-lift,0px)); }
 .nts-appearance[hidden] { display:none; }
 .nts-appearance summary { box-sizing:border-box; display:flex; align-items:center; justify-content:center; min-height:44px; min-width:60px; padding:.4rem .6rem; font-size:.7rem; color:#eef6f3; border:1px solid #bfd5d577; border-radius:.6rem; background:#163945e8; cursor:pointer; pointer-events:auto; list-style:none; }
 .nts-appearance summary::-webkit-details-marker { display:none; }

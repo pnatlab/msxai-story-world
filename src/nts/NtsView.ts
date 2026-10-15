@@ -251,7 +251,15 @@ export class NtsView {
         b.style.left = `${box.x}px`; b.style.top = `${Math.min(height - 130, box.y)}px`; b.style.width = `${Math.max(48, box.width)}px`;
       });
       if (this.state.reading && !this.state.introduction) place(this.element.querySelector<HTMLElement>(".nts-caption")!, c.narrative, true);
-      place(this.element.querySelector<HTMLElement>(".nts-presence-controls")!, c.controls);
+      const controls = this.element.querySelector<HTMLElement>(".nts-presence-controls")!;
+      place(controls, c.controls);
+      // The projected anchor owns position, not the dimensions of localized DOM controls.
+      const controlsWidth = Math.max(c.controls.width, controls.querySelector<HTMLElement>(":scope > div")!.offsetWidth);
+      controls.style.width = `${controlsWidth}px`; controls.style.height = "auto";
+      const primary = [...controls.querySelectorAll<HTMLElement>('[data-nts="meet"], [data-nts="inspect"]')].map(button => button.getBoundingClientRect());
+      const primaryCenter = (Math.min(...primary.map(box => box.left)) + Math.max(...primary.map(box => box.right))) / 2;
+      const primaryOffset = primaryCenter - controls.getBoundingClientRect().left;
+      controls.style.left = `${Math.max(16, Math.min(width - controlsWidth - 16, c.controls.x + c.controls.width / 2 - primaryOffset))}px`;
     }
     if (c && !dom && this.state.introduction) {
       const voiceBox = compact ? { ...c.voice, x: c.presence.x + c.presence.width * .82, y: c.presence.y + 20, width: width * .55, height: 320 } : c.voice;
@@ -266,6 +274,18 @@ export class NtsView {
     this.placeAppearance(compact);
   }
   private placeAppearance(compact: boolean): void {
+    this.element.style.setProperty("--nts-controls-lift", "0px");
+    if (!this.state?.inspection && !this.state?.markInspection && !this.state?.introduction && !this.state?.dom && !this.fallback) {
+      const controls = this.element.querySelector<HTMLElement>(".nts-presence-controls")!.getBoundingClientRect();
+      const traceTops = [...this.element.querySelectorAll<HTMLElement>("[data-nts-memory]")]
+        .map(button => button.getBoundingClientRect())
+        .filter(trace => trace.left < controls.right + 12 && trace.right > controls.left - 12)
+        .map(trace => trace.top);
+      // Keep the whole flow-owned action group above the existing memory field.
+      // Measure on every anchor refresh so resize, locale and wrapping share one rule.
+      const lift = Math.min(0, Math.min(...traceTops) - 12 - controls.bottom);
+      this.element.style.setProperty("--nts-controls-lift", `${lift}px`);
+    }
     const stage = this.element.getBoundingClientRect(), controls = this.element.querySelector<HTMLElement>(".nts-presence-controls")!.getBoundingClientRect();
     let readingTop = Math.max(255, controls.bottom - stage.top + 12);
     if (this.appearance.open && !this.appearance.hidden) {
@@ -274,10 +294,12 @@ export class NtsView {
       // Keep the normal spatial view's upper face clear, including narrow desktops.
       const leftSpace = presence ? presence.x + presence.width * .24 - 28 : 248;
       panel.style.width = `${short ? 128 : Math.min(248, stage.width - 32, compact || this.state?.inspection ? 248 : Math.max(128, leftSpace))}px`;
-      panel.style.maxHeight = `${short ? Math.max(88, controls.top - stage.top - 152) : Math.min(260, stage.height * .4)}px`;
-      const trigger = this.appearance.getBoundingClientRect(), panelHeight = panel.getBoundingClientRect().height;
       const tracesTop = Math.min(...[...this.element.querySelectorAll<HTMLElement>("[data-nts-memory]")].map(b => b.getBoundingClientRect().top));
-      const x = compact ? stage.left + (short ? 16 : stage.width * .05) : Math.max(stage.left + 16, trigger.left - panel.offsetWidth - 12);
+      const panelHeightLimit = short ? Math.max(88, controls.top - stage.top - 152) : Math.min(260, stage.height * .4);
+      panel.style.maxHeight = `${compact ? panelHeightLimit : Math.min(panelHeightLimit, Math.max(44, tracesTop - stage.top - 152))}px`;
+      const trigger = this.appearance.getBoundingClientRect(), panelHeight = panel.getBoundingClientRect().height;
+      const panelLeft = Math.min(trigger.left - panel.offsetWidth - 12, stage.left + leftSpace - panel.offsetWidth);
+      const x = compact ? stage.left + (short ? 16 : stage.width * .05) : Math.max(stage.left + 16, this.state?.inspection ? trigger.left - panel.offsetWidth - 12 : panelLeft);
       const y = short ? stage.top + 140 : compact ? (this.state?.inspection ? Math.max(stage.top + 145, tracesTop - panelHeight - 12) : controls.bottom + 8) : Math.max(stage.top + 140, Math.min(trigger.top - panelHeight - 8, tracesTop - panelHeight - 12));
       panel.style.left = `${x - trigger.left}px`; panel.style.top = `${y - trigger.top}px`;
       if (compact && !this.state?.inspection) readingTop = Math.max(readingTop, y - stage.top + panelHeight + 12);

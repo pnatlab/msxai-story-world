@@ -13,6 +13,42 @@ const open = async (page: Page) => {
   if (await details.getAttribute("open") === null) await details.locator("summary").click();
   await expect(details).toHaveAttribute("open", "");
 };
+
+test("Presence Colors and its open panel clear the memory field across responsive layouts and locales", async ({ page }) => {
+  test.setTimeout(90000);
+  await page.locator('[data-nutuensai-entry="home"]').click(); await settled(page);
+  const viewports = [
+    { width: 1366, height: 768 }, { width: 1440, height: 900 }, { width: 1920, height: 1080 },
+    { width: 1280, height: 720 }, { width: 1024, height: 768 }, { width: 800, height: 600 },
+    { width: 390, height: 844 }, { width: 640, height: 480 }, { width: 844, height: 390 },
+  ];
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport); await settled(page);
+    for (const locale of ["en", "th"]) {
+      await page.locator(`[data-nts="${locale}"]`).click();
+      // Check both the arrival field and active Image ↔ Narrative composition.
+      for (const memory of [null, "s1", "s4"]) {
+        if (memory) await page.locator(`[data-nts-memory="${memory}"]`).click();
+        else if (await page.locator('[data-nts="close-reading"]').isVisible()) await page.locator('[data-nts="close-reading"]').click();
+        for (const expanded of [false, true]) {
+          if (expanded) await open(page);
+          const targets = page.locator(expanded
+            ? '.nts-appearance summary, .nts-appearance-panel, [data-nts="meet"], [data-nts="inspect"]'
+            : '.nts-appearance summary, [data-nts="meet"], [data-nts="inspect"]');
+          await expect.poll(async () => targets.evaluateAll(elements => {
+            const traces = [...document.querySelectorAll('[data-nts-memory]')].map(trace => trace.getBoundingClientRect());
+            return Math.min(...elements.flatMap(element => {
+              const box = element.getBoundingClientRect();
+              return traces.map(trace => Math.hypot(Math.max(box.left - trace.right, trace.left - box.right, 0), Math.max(box.top - trace.bottom, trace.top - box.bottom, 0)));
+            }));
+          }), `${viewport.width}×${viewport.height} ${locale}: Presence controls must be separate from images AND labels`).toBeGreaterThanOrEqual(11);
+        }
+        await page.keyboard.press("Escape");
+        await expect(page.locator('.nts-appearance summary')).toBeFocused();
+      }
+    }
+  }
+});
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(key => sessionStorage.setItem(key, "seen"), FOUNDATIONAL_SESSION_KEY);
   await page.emulateMedia({ reducedMotion: "reduce" });
