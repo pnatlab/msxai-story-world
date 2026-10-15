@@ -77,7 +77,59 @@ function lowBraidGeometry(): THREE.BufferGeometry {
   return geometry;
 }
 
-/** Keep the baked eye colors/gaze, narrowing only the aperture and its two lids. */
+/** A small rounded fringe follows the forehead; its ends nest under authored hair. */
+function sideFringeGeometry(support: readonly THREE.BufferGeometry[]): THREE.BufferGeometry {
+  const samplerMaterial = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+  const surfaces = support.map(geometry => new THREE.Mesh(geometry, samplerMaterial));
+  const ray = new THREE.Raycaster(), direction = new THREE.Vector3(0, 0, -1);
+  const cache = new Map<string, number>();
+  const surfaceZ = (x: number, y: number): number => {
+    const key = `${x.toFixed(6)},${y.toFixed(6)}`;
+    if (cache.has(key)) return cache.get(key)!;
+    ray.set(new THREE.Vector3(x, y, .2), direction);
+    const hit = ray.intersectObjects(surfaces, false)[0];
+    if (!hit) throw Error("fringe surface");
+    cache.set(key, hit.point.z); return hit.point.z;
+  };
+  const path = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(.018, 1.668, 0), new THREE.Vector3(.006, 1.645, 0),
+    new THREE.Vector3(-.002, 1.632, 0), new THREE.Vector3(-.015, 1.619, 0),
+    new THREE.Vector3(-.035, 1.608, 0), new THREE.Vector3(-.055, 1.602, 0),
+    new THREE.Vector3(-.075, 1.598, 0),
+  ]);
+  const positions: number[] = [], indices: number[] = [], segments = 32, sides = 12;
+  try {
+    for (let row = 0; row <= segments; row++) {
+      const t = row / segments, center = path.getPoint(t), tangent = path.getTangent(t);
+      const across = new THREE.Vector3(-tangent.y, tangent.x, 0).normalize();
+      const width = (.001 + .007 * Math.sin(Math.PI * t)) * (t > .7 ? THREE.MathUtils.lerp(1, .5, (t - .7) / .3) : 1);
+      const blend = THREE.MathUtils.smoothstep(t, 0, .1) * (1 - THREE.MathUtils.smoothstep(t, .9, 1));
+      for (let side = 0; side < sides; side++) {
+        const a = side / sides * Math.PI * 2, p = center.clone().addScaledVector(across, Math.cos(a) * width);
+        p.y = Math.max(1.596, p.y);
+        p.z = surfaceZ(p.x, p.y) + .0006 + blend * .0013 + Math.sin(a) * (.00015 + blend * .00105);
+        positions.push(p.x, p.y, p.z);
+        if (row < segments) {
+          const i = row * sides + side, next = row * sides + (side + 1) % sides;
+          indices.push(i, next, i + sides, next, next + sides, i + sides);
+        }
+      }
+    }
+    for (const end of [0, segments]) {
+      const center = path.getPoint(end / segments), cap = positions.length / 3;
+      positions.push(center.x, center.y, surfaceZ(center.x, center.y) + .0006);
+      for (let side = 0; side < sides; side++) {
+        const a = end * sides + side, b = end * sides + (side + 1) % sides;
+        indices.push(cap, end ? a : b, end ? b : a);
+      }
+    }
+  } finally { samplerMaterial.dispose(); }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices); geometry.computeVertexNormals(); return geometry;
+}
+
+/** Open the existing eye patch and its lids, keeping the calm gaze and eye width. */
 function softenEyeOpening(geometry: THREE.BufferGeometry): void {
   const original = geometry.getAttribute("position");
   const positions = new THREE.Float32BufferAttribute(new Float32Array(original.array), 3);
@@ -85,9 +137,78 @@ function softenEyeOpening(geometry: THREE.BufferGeometry): void {
     const t = THREE.MathUtils.clamp((Math.abs(positions.getX(i)) - .020) / .036, 0, 1);
     const center = 1.56925 + .0015 * t;
     const lift = .0004 * Math.sin(Math.PI * t) + .0003 * t;
-    positions.setY(i, center + .88 * (positions.getY(i) - center) + lift);
+    // Fuller shoulders of the aperture soften its pointed almond corners; width/gaze stay fixed.
+    const rounding = 1.38 / Math.pow(Math.max(Math.sin(Math.PI * t), .12), .16);
+    positions.setY(i, center + rounding * (positions.getY(i) - center) + lift);
   }
   geometry.setAttribute("position", positions); geometry.computeVertexNormals();
+  if (geometry.hasAttribute("color")) {
+    const colors = new THREE.Float32BufferAttribute(new Float32Array(positions.count * 3), 3);
+    const sclera = new THREE.Color("#d5d9d3"), iris = new THREE.Color("#5b5144");
+    const rim = new THREE.Color("#35332e"), pupil = new THREE.Color("#191e20");
+    for (let i = 0; i < positions.count; i++) {
+      const x = Math.abs(positions.getX(i)) - .038, y = positions.getY(i) - 1.5717;
+      const r = Math.hypot(x, y);
+      const color = r < .0044 ? pupil : r < .0087 ? iris : r < .0095 ? rim : sclera;
+      colors.setXYZ(i, color.r, color.g, color.b);
+    }
+    geometry.setAttribute("color", colors);
+  }
+}
+
+/** Lift/compress only the lower jaw; cheeks, upper face, width and neck are untouched. */
+function shortenChin(geometry: THREE.BufferGeometry): void {
+  const positions = new THREE.Float32BufferAttribute(new Float32Array(geometry.getAttribute("position").array), 3);
+  const normals = new THREE.Float32BufferAttribute(new Float32Array(geometry.getAttribute("normal").array), 3);
+  const normal = new THREE.Vector3();
+  for (let i = 0; i < positions.count; i++) {
+    const y = positions.getY(i);
+    if (y >= 1.495) continue;
+    const t = THREE.MathUtils.clamp((y - 1.435) / .060, 0, 1);
+    positions.setY(i, y + .018 * (1 - THREE.MathUtils.smoothstep(y, 1.435, 1.495)));
+    // Inverse-transpose of the local Y warp preserves the authored smooth jaw normals.
+    const slope = 1 - .018 * 6 * t * (1 - t) / .060;
+    normal.fromBufferAttribute(normals, i); normal.y /= slope; normal.normalize();
+    normals.setXYZ(i, normal.x, normal.y, normal.z);
+  }
+  geometry.setAttribute("position", positions); geometry.setAttribute("normal", normals);
+}
+
+/** Compact the existing mask vertically; ear anchors stay put while front straps follow. */
+function compactMask(geometry: THREE.BufferGeometry, strap: boolean): void {
+  const positions = new THREE.Float32BufferAttribute(new Float32Array(geometry.getAttribute("position").array), 3);
+  for (let i = 0; i < positions.count; i++) {
+    const y = positions.getY(i), compact = 1.5038676 + .78 * (y - 1.5038676);
+    const weight = strap ? THREE.MathUtils.smoothstep(positions.getZ(i), 0, .045) : 1;
+    positions.setY(i, THREE.MathUtils.lerp(y, compact, weight));
+  }
+  geometry.setAttribute("position", positions); geometry.computeVertexNormals();
+}
+
+/** Two small static reflections follow the eye surfaces, not the camera. */
+function eyeCatchlightGeometry(eyes: readonly THREE.BufferGeometry[]): THREE.BufferGeometry {
+  const positions: number[] = [], indices: number[] = [], sides = 24;
+  const samplerMaterial = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+  const ray = new THREE.Raycaster(), direction = new THREE.Vector3(0, 0, -1);
+  try {
+    for (const eye of eyes) {
+      eye.computeBoundingBox();
+      const centerX = eye.boundingBox!.getCenter(new THREE.Vector3()).x - .0028, centerY = 1.5755;
+      const surface = new THREE.Mesh(eye, samplerMaterial), base = positions.length / 3;
+      for (let i = 0; i <= sides; i++) {
+        const a = (i - 1) / sides * Math.PI * 2;
+        const x = centerX + (i ? Math.cos(a) * .0017 : 0), y = centerY + (i ? Math.sin(a) * .0017 : 0);
+        ray.set(new THREE.Vector3(x, y, .2), direction);
+        const hit = ray.intersectObject(surface)[0];
+        if (!hit) throw Error("eye reflection surface");
+        positions.push(x, y, hit.point.z + .00012);
+        if (i) indices.push(base, base + i, base + (i % sides) + 1);
+      }
+    }
+  } finally { samplerMaterial.dispose(); }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices); geometry.computeVertexNormals(); return geometry;
 }
 
 /** Bounded destination presentation. Reuses the renderer/director; no semantic controller. */
@@ -321,16 +442,23 @@ export class NtsPresentation {
       const buffer = await response.arrayBuffer(); if (this.disposed || this.abort.signal.aborted) return;
       const palette: Record<string, string> = { skin: "#ecd6c6", hair: "#15191e", brow: "#332a29", lid: "#94776c", mask: "#eaf2f4", print: "#6d7b86", loop: "#cddce0", body: "#8ea7ad", eye: "#ffffff" };
       const shared = new Map<string, THREE.MeshStandardMaterial>();
+      const fringeSupport: THREE.BufferGeometry[] = [];
+      const eyeSurfaces: THREE.BufferGeometry[] = [];
       for (const item of info.objects) {
-        // Replace only the tied fall; all other baked arrays remain untouched.
+        // Keep binary assets unchanged; bounded face refinements use cloned attributes.
         if (item.name === "NTS_2C_Hair_LowPonytail") continue;
         const geo = new THREE.BufferGeometry();
         for (const key of ["position", "normal", "color"] as const) if (item[key]) geo.setAttribute(key, new THREE.BufferAttribute(new Float32Array(buffer, item[key]!.offset, item[key]!.count), 3));
         geo.setIndex(new THREE.BufferAttribute(new Uint32Array(buffer, item.index.offset, item.index.count), 1)); this.geometries.add(geo);
         if (/^NTS_2C_(Eye|Lid_Upper|Lid_Lower)_[RL]$/.test(item.name)) softenEyeOpening(geo);
-        let material = shared.get(item.role);
+        if (item.name === "NTS_2C_Head_OriginalStylized") shortenChin(geo);
+        if (item.role === "eye") eyeSurfaces.push(geo);
+        if (["mask", "loop", "print"].includes(item.role)) compactMask(geo, item.role === "loop");
+        if (item.name === "NTS_2C_Head_OriginalStylized") fringeSupport.push(geo);
+        const upperEye = /^NTS_2C_Lid_Upper_[RL]$/.test(item.name), materialKey = upperEye ? "upper-eye" : item.role;
+        let material = shared.get(materialKey);
         if (!material) {
-          material = new THREE.MeshStandardMaterial({ color: palette[item.role], roughness: item.role === "hair" ? .94 : .82, emissive: palette[item.role], emissiveIntensity: .055, vertexColors: item.role === "eye", transparent: item.role === "body", depthWrite: true });
+          material = new THREE.MeshStandardMaterial({ color: upperEye ? "#675a52" : palette[item.role], roughness: item.role === "hair" ? .94 : .82, emissive: palette[item.role], emissiveIntensity: .055, vertexColors: item.role === "eye", transparent: item.role === "body", depthWrite: true });
           const role = item.role;
           material.onBeforeCompile = shader => {
             shader.vertexShader = "varying float vStudyHeight;\n" + shader.vertexShader;
@@ -340,12 +468,17 @@ export class NtsPresentation {
             if (["body", "skin", "hair"].includes(role)) shader.fragmentShader = shader.fragmentShader.replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance += vec3(.08,.18,.22) * pow(1.0-abs(dot(normalize(normal),normalize(vViewPosition))),2.8);");
           };
           material.customProgramCacheKey = () => `private-NTS-study-${role}`;
-          shared.set(role, material); this.materials.add(material);
+          shared.set(materialKey, material); this.materials.add(material);
         }
         const mesh = new THREE.Mesh(geo, material); mesh.name = item.name; if (item.role === "body") mesh.renderOrder = 1; this.presence.add(mesh);
       }
       const hairGeometry = lowBraidGeometry(); this.geometries.add(hairGeometry);
       const braid = new THREE.Mesh(hairGeometry, shared.get("hair")!); braid.name = "NTS_Hair_LowSingleBraid"; this.presence.add(braid);
+      const fringeGeometry = sideFringeGeometry(fringeSupport); this.geometries.add(fringeGeometry);
+      const fringe = new THREE.Mesh(fringeGeometry, shared.get("hair")!); fringe.name = "NTS_Hair_SoftSideFringe"; this.presence.add(fringe);
+      const catchlightGeometry = eyeCatchlightGeometry(eyeSurfaces); this.geometries.add(catchlightGeometry);
+      const catchlightMaterial = new THREE.MeshBasicMaterial({ color: "#f5f7f1" }); this.materials.add(catchlightMaterial);
+      const catchlights = new THREE.Mesh(catchlightGeometry, catchlightMaterial); catchlights.name = "NTS_Eyes_StaticCatchlights"; this.presence.add(catchlights);
       this.presence.scale.setScalar(6); this.presence.position.set(-4.8, -4.6, 1);
       this.loaded = true; this.presence.visible = this.active && this.state?.phase === "settled" && !this.state.dom; this.changed();
     } catch { if (!this.disposed && !this.abort.signal.aborted) { this.failed = true; this.failedPresence(); } }
