@@ -4,6 +4,7 @@ import type { CameraState } from "../world/world.schema";
 import { MEMORIES, memoryAsset, type MemoryId } from "./content";
 import type { NtsState } from "./visitState";
 import { compactNts, TRACE_POSITIONS, type NtsComposition, type ProjectedBox } from "./composition";
+import { DEFAULT_APPEARANCE, MASK_COLORS, OUTFIT_COLORS } from "./appearance";
 
 interface SnapshotObject { name: string; role: string; position: { offset: number; count: number }; normal: { offset: number; count: number }; index: { offset: number; count: number }; color?: { offset: number; count: number }; }
 type SavedControls = { minDistance: number; maxDistance: number; minPolarAngle: number; maxPolarAngle: number; minAzimuthAngle: number; maxAzimuthAngle: number; enablePan: boolean; enableZoom: boolean; enableRotate: boolean; };
@@ -293,6 +294,8 @@ export class NtsPresentation {
   private readonly wanted = new Set<MemoryId>();
   private readonly geometries = new Set<THREE.BufferGeometry>();
   private readonly materials = new Set<THREE.Material>();
+  private outfitMaterial?: THREE.MeshStandardMaterial;
+  private maskMaterial?: THREE.MeshStandardMaterial;
   private readonly savedVisibility = new Map<THREE.Object3D, boolean>();
   private savedCamera?: CameraState;
   private savedControls?: SavedControls;
@@ -388,6 +391,7 @@ export class NtsPresentation {
   }
   setState(state: NtsState, reduced: boolean): void {
     const previous = this.state; this.state = state;
+    this.applyAppearance();
     if (!this.active) return;
     if (reduced && state.phase !== "returning") this.setBlend(1, 0);
     if (reduced || state.dom || state.phase !== "settled") this.motionUntil = 0;
@@ -402,6 +406,11 @@ export class NtsPresentation {
     this.presence.traverse(object => { const mesh = object as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>; if (mesh.material) mesh.material.emissiveIntensity = state.reading && !state.inspection ? .015 : .055; });
     if (state.phase === "settled" && (state.inspection !== previous?.inspection || state.introduction !== previous?.introduction || state.reading !== previous?.reading)) this.moveForState(reduced);
     this.changed();
+  }
+  private applyAppearance(): void {
+    const { outfit, mask } = this.state ?? DEFAULT_APPEARANCE;
+    if (this.outfitMaterial) { this.outfitMaterial.color.set(OUTFIT_COLORS[outfit]); this.outfitMaterial.emissive.copy(this.outfitMaterial.color); }
+    if (this.maskMaterial) { this.maskMaterial.color.set(MASK_COLORS[mask]); this.maskMaterial.emissive.copy(this.maskMaterial.color); }
   }
   beginReturn(reduced: boolean, fallbackCamera: CameraState): void {
     this.abort.abort();
@@ -553,6 +562,7 @@ export class NtsPresentation {
       for (const mesh of createBeautyStyling(fringeSupport[0], beautyLids)) {
         this.geometries.add(mesh.geometry); this.materials.add(mesh.material); this.presence.add(mesh);
       }
+      this.outfitMaterial = shared.get("body"); this.maskMaterial = shared.get("mask"); this.applyAppearance();
       this.presence.scale.setScalar(6); this.presence.position.set(-4.8, -4.6, 1);
       this.loaded = true; this.presence.visible = this.active && this.state?.phase === "settled" && !this.state.dom; this.changed();
     } catch { if (!this.disposed && !this.abort.signal.aborted) { this.failed = true; this.failedPresence(); } }
@@ -560,7 +570,7 @@ export class NtsPresentation {
   }
   get inspection() {
     const point = new THREE.Vector3(-4.8, 4.6, 1).add(this.group.position).project(this.director.camera);
-    return { active: this.active, loaded: this.loaded, failed: this.failed, blend: this.blend, textureCount: this.textures.size, visibleMemories: [...this.panels].filter(([, panel]) => panel.visible).map(([id]) => id), visibleTraces: this.active ? MEMORIES.map(item => item.id) : [], presenceMeshCount: this.presence.children.length, savedCamera: Boolean(this.savedCamera), presenceNdc: { x: point.x, y: point.y }, composition: this.project(window.innerWidth, window.innerHeight) };
+    return { active: this.active, loaded: this.loaded, failed: this.failed, blend: this.blend, textureCount: this.textures.size, visibleMemories: [...this.panels].filter(([, panel]) => panel.visible).map(([id]) => id), visibleTraces: this.active ? MEMORIES.map(item => item.id) : [], presenceMeshCount: this.presence.children.length, presentationColors: { outfit: this.outfitMaterial?.color.getHexString(), mask: this.maskMaterial?.color.getHexString() }, savedCamera: Boolean(this.savedCamera), presenceNdc: { x: point.x, y: point.y }, composition: this.project(window.innerWidth, window.innerHeight) };
   }
   project(width: number, height: number): NtsComposition {
     const box = (center: readonly number[], w: number, h: number): ProjectedBox => {

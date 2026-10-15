@@ -107,6 +107,7 @@ const ntsView = new NtsView({
   closeIntroduction: () => nts.closeIntroduction(), closeReading: () => nts.closeReading(),
   return: () => nts.requestReturn(), dom: dom => nts.setDom(dom), locale: locale => localeController.setLocale(locale),
   project: () => scene?.projectNts(), memoryLift: active => scene?.setNtsMemoryLift(active),
+  outfit: color => nts.setOutfit(color), mask: color => nts.setMask(color),
 }, !webglAvailable);
 stage.append(ntsView.element);
 

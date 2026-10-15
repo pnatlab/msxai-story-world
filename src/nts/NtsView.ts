@@ -2,6 +2,7 @@ import type { Locale } from "../story/localeState";
 import { INTRO, MEMORIES, memory, memoryAsset, NTS_COPY, type MemoryId } from "./content";
 import type { NtsState } from "./visitState";
 import { compactNts, type NtsComposition, type ProjectedBox } from "./composition";
+import { APPEARANCE_COPY, MASK_COLORS, OUTFIT_COLORS, type MaskColor, type OutfitColor } from "./appearance";
 
 export class NtsView {
   readonly element = document.createElement("section");
@@ -11,6 +12,7 @@ export class NtsView {
   private readonly failedImages = new Set<string>();
   private imageId?: string;
   private readonly footerObserver: ResizeObserver;
+  private readonly appearance: HTMLDetailsElement;
   private readonly motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
   private lift?: { id: MemoryId; image: HTMLImageElement; frame: number };
   constructor(private readonly actions: {
@@ -19,6 +21,7 @@ export class NtsView {
     return: () => void; dom: (dom: boolean) => void; locale: (locale: Locale) => void;
     project?: () => NtsComposition | undefined;
     memoryLift?: (active: boolean) => void;
+    outfit: (color: OutfitColor) => void; mask: (color: MaskColor) => void;
   }, private readonly fallback: boolean) {
     this.element.className = "nts-view"; this.element.hidden = true;
     this.element.setAttribute("aria-labelledby", "nts-title");
@@ -55,6 +58,15 @@ export class NtsView {
     this.element.querySelector(".nts-angles")!.append(orbit);
     orbit.querySelector("input")!.addEventListener("input", e => actions.inspect(Number((e.target as HTMLInputElement).value)));
     this.element.querySelectorAll<HTMLButtonElement>("[data-angle]").forEach(b => b.addEventListener("click", () => actions.inspect(b.dataset.angle as "front" | "left" | "right")));
+    this.appearance = document.createElement("details"); this.appearance.className = "nts-appearance";
+    const choices = (kind: string, colors: Record<string, string>) => Object.entries(colors).map(([id, color]) => `<button type="button" data-nts-${kind}="${id}"><span class="nts-swatch" style="background:${color}" aria-hidden="true"></span><span class="nts-color-label"></span><span class="nts-color-check" aria-hidden="true">✓</span></button>`).join("");
+    this.appearance.innerHTML = `<summary></summary><div class="nts-appearance-panel" aria-labelledby="nts-appearance-title"><p id="nts-appearance-title"></p><fieldset data-nts-outfit-group><legend></legend><div>${choices("outfit", OUTFIT_COLORS)}</div></fieldset><fieldset data-nts-mask-group><legend></legend><div>${choices("mask", MASK_COLORS)}</div></fieldset></div>`;
+    this.element.querySelector('.nts-presence-controls > div')!.append(this.appearance);
+    this.appearance.querySelectorAll<HTMLButtonElement>("[data-nts-outfit]").forEach(b => b.addEventListener("click", () => actions.outfit(b.dataset.ntsOutfit as OutfitColor)));
+    this.appearance.querySelectorAll<HTMLButtonElement>("[data-nts-mask]").forEach(b => b.addEventListener("click", () => actions.mask(b.dataset.ntsMask as MaskColor)));
+    this.appearance.addEventListener("toggle", () => this.refreshAnchors());
+    window.addEventListener("keydown", this.onAppearanceEscape, true);
+    window.addEventListener("pointerdown", this.onAppearanceOutside, true);
     for (const [index, item] of MEMORIES.entries()) {
       const b = document.createElement("button"); b.type = "button"; b.dataset.ntsMemory = item.id;
       const image = document.createElement("img"); image.width = 160; image.height = 240; image.draggable = false;
@@ -67,7 +79,19 @@ export class NtsView {
     window.addEventListener("resize", this.onResize);
     this.motionPreference.addEventListener("change", this.onMotionPreference);
   }
-  private readonly onResize = () => { this.cancelLift(); if (this.state) this.render(this.state); };
+  private readonly onResize = () => {
+    this.cancelLift();
+    if (this.appearance.open && this.appearance.contains(document.activeElement)) this.appearance.querySelector<HTMLElement>("summary")!.focus({ preventScroll: true });
+    this.appearance.open = false; if (this.state) this.render(this.state);
+  };
+  private readonly onAppearanceEscape = (event: KeyboardEvent) => {
+    if (event.key !== "Escape" || !this.appearance.open || this.element.hidden) return;
+    event.preventDefault(); event.stopImmediatePropagation(); this.appearance.open = false;
+    this.appearance.querySelector<HTMLElement>("summary")!.focus(); this.refreshAnchors();
+  };
+  private readonly onAppearanceOutside = (event: PointerEvent) => {
+    if (this.appearance.open && event.target instanceof Node && !this.appearance.contains(event.target)) { this.appearance.open = false; this.refreshAnchors(); }
+  };
   private readonly onMotionPreference = () => { if (this.motionPreference.matches) this.cancelLift(); };
   private cancelLift(): void {
     if (!this.lift) return;
@@ -142,6 +166,19 @@ export class NtsView {
     const c = NTS_COPY[this.locale]; const item = memory(state.memoryId);
     const dom = this.fallback || state.dom;
     const compact = compactNts(window.innerWidth, window.innerHeight);
+    const appearanceCopy = APPEARANCE_COPY[this.locale];
+    this.appearance.hidden = dom || this.avatarFailed || state.phase !== "settled" || state.introduction;
+    if (this.appearance.hidden) this.appearance.open = false;
+    this.appearance.querySelector("summary")!.textContent = appearanceCopy.colors;
+    this.appearance.querySelector("#nts-appearance-title")!.textContent = appearanceCopy.title;
+    for (const kind of ["outfit", "mask"] as const) {
+      this.appearance.querySelector(`[data-nts-${kind}-group] legend`)!.textContent = appearanceCopy[kind];
+      this.appearance.querySelectorAll<HTMLButtonElement>(`[data-nts-${kind}]`).forEach(b => {
+        const id = (kind === "outfit" ? b.dataset.ntsOutfit : b.dataset.ntsMask) as OutfitColor | MaskColor;
+        b.querySelector(".nts-color-label")!.textContent = appearanceCopy[id];
+        b.setAttribute("aria-label", appearanceCopy[id]); b.setAttribute("aria-pressed", String(state[kind] === id)); b.disabled = state.phase !== "settled";
+      });
+    }
     this.element.dataset.layout = compact ? "compact" : "spatial";
     this.element.classList.toggle("is-introduction", state.introduction);
     this.element.classList.toggle("is-dom", dom); this.element.classList.toggle("is-inspection", Boolean(state.inspection));
@@ -213,6 +250,26 @@ export class NtsView {
       const endX = compact ? parseFloat(intro.style.left) : positioned.x, endY = positioned.y + 48;
       tether.style.left = `${startX}px`; tether.style.top = `${startY}px`; tether.style.width = `${Math.hypot(endX - startX, endY - startY)}px`; tether.style.transform = `rotate(${Math.atan2(endY - startY, endX - startX)}rad)`;
     }
+    this.placeAppearance(compact);
   }
-  dispose(): void { this.cancelLift(); this.footerObserver.disconnect(); window.removeEventListener("resize", this.onResize); this.motionPreference.removeEventListener("change", this.onMotionPreference); this.element.remove(); }
+  private placeAppearance(compact: boolean): void {
+    const stage = this.element.getBoundingClientRect(), controls = this.element.querySelector<HTMLElement>(".nts-presence-controls")!.getBoundingClientRect();
+    let readingTop = Math.max(255, controls.bottom - stage.top + 12);
+    if (this.appearance.open && !this.appearance.hidden) {
+      const panel = this.appearance.querySelector<HTMLElement>(".nts-appearance-panel")!;
+      const short = compact && stage.height <= 620, presence = this.actions.project?.()?.presence;
+      // Keep the normal spatial view's upper face clear, including narrow desktops.
+      const leftSpace = presence ? presence.x + presence.width * .24 - 28 : 248;
+      panel.style.width = `${short ? 128 : Math.min(248, stage.width - 32, compact || this.state?.inspection ? 248 : Math.max(128, leftSpace))}px`;
+      panel.style.maxHeight = `${short ? Math.max(88, controls.top - stage.top - 152) : Math.min(260, stage.height * .4)}px`;
+      const trigger = this.appearance.getBoundingClientRect(), panelHeight = panel.getBoundingClientRect().height;
+      const tracesTop = Math.min(...[...this.element.querySelectorAll<HTMLElement>("[data-nts-memory]")].map(b => b.getBoundingClientRect().top));
+      const x = compact ? stage.left + (short ? 16 : stage.width * .05) : Math.max(stage.left + 16, trigger.left - panel.offsetWidth - 12);
+      const y = short ? stage.top + 140 : compact ? (this.state?.inspection ? Math.max(stage.top + 145, tracesTop - panelHeight - 12) : controls.bottom + 8) : Math.max(stage.top + 140, Math.min(trigger.top - panelHeight - 8, tracesTop - panelHeight - 12));
+      panel.style.left = `${x - trigger.left}px`; panel.style.top = `${y - trigger.top}px`;
+      if (compact && !this.state?.inspection) readingTop = Math.max(readingTop, y - stage.top + panelHeight + 12);
+    }
+    this.element.style.setProperty("--nts-reading-top", `${readingTop}px`);
+  }
+  dispose(): void { this.cancelLift(); this.footerObserver.disconnect(); window.removeEventListener("resize", this.onResize); window.removeEventListener("keydown", this.onAppearanceEscape, true); window.removeEventListener("pointerdown", this.onAppearanceOutside, true); this.motionPreference.removeEventListener("change", this.onMotionPreference); this.element.remove(); }
 }

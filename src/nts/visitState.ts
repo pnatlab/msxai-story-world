@@ -1,4 +1,5 @@
 import { MEMORIES, type MemoryId } from "./content";
+import { DEFAULT_APPEARANCE, MASK_COLORS, OUTFIT_COLORS, type MaskColor, type OutfitColor } from "./appearance";
 export interface NtsState {
   readonly phase: "closed" | "approaching" | "settled" | "returning";
   readonly memoryId: MemoryId;
@@ -6,17 +7,19 @@ export interface NtsState {
   readonly inspection: false | "front" | "left" | "right" | number;
   readonly introduction: boolean;
   readonly dom: boolean;
+  readonly outfit: OutfitColor;
+  readonly mask: MaskColor;
 }
 /** Only presentation state. No story/ecosystem/model/context references. */
 export class NtsVisitController {
-  private state: NtsState = { phase: "closed", memoryId: "s1", reading: false, inspection: false, introduction: false, dom: false };
+  private state: NtsState = { phase: "closed", memoryId: "s1", reading: false, inspection: false, introduction: false, dom: false, ...DEFAULT_APPEARANCE };
   private readonly listeners = new Set<(state: NtsState) => void>();
   getState(): NtsState { return this.state; }
   get active(): boolean { return this.state.phase !== "closed"; }
   subscribe(listener: (state: NtsState) => void): () => void { this.listeners.add(listener); listener(this.state); return () => this.listeners.delete(listener); }
   enter(reduced: boolean): boolean {
     if (this.active) return false;
-    this.publish({ ...this.state, phase: reduced ? "settled" : "approaching", memoryId: "s1", reading: false, inspection: false, introduction: false }); return true;
+    this.publish({ ...this.state, ...DEFAULT_APPEARANCE, phase: reduced ? "settled" : "approaching", memoryId: "s1", reading: false, inspection: false, introduction: false }); return true;
   }
   settle(): void { if (this.state.phase === "approaching") this.publish({ ...this.state, phase: "settled" }); }
   select(id: MemoryId): void {
@@ -31,6 +34,12 @@ export class NtsVisitController {
   closeIntroduction(): void { if (this.state.introduction) this.publish({ ...this.state, introduction: false }); }
   closeReading(): void { if (this.state.reading) this.publish({ ...this.state, reading: false }); }
   setDom(dom: boolean): void { this.publish({ ...this.state, dom }); }
+  setOutfit(outfit: OutfitColor): void {
+    if (this.state.phase === "settled" && Object.hasOwn(OUTFIT_COLORS, outfit) && outfit !== this.state.outfit) this.publish({ ...this.state, outfit });
+  }
+  setMask(mask: MaskColor): void {
+    if (this.state.phase === "settled" && Object.hasOwn(MASK_COLORS, mask) && mask !== this.state.mask) this.publish({ ...this.state, mask });
+  }
   requestReturn(): void {
     if (this.active && this.state.phase !== "returning") this.publish({ ...this.state, phase: "returning", inspection: false, introduction: false, reading: false });
   }

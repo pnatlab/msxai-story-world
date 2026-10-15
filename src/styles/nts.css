@@ -104,6 +104,27 @@
 .nts-orbit { display:flex; flex-direction:column; gap:5px; width:min(250px,65vw); font-size:11px; color:#d8eeee; }
 .nts-orbit input { width:100%; accent-color:#a9dce5; min-height:30px; pointer-events:auto; }
 .nts-angles { flex-wrap:wrap; justify-content:center; }
+.nts-appearance { position:absolute; right:calc(100% + 8px); top:22px; z-index:6; text-align:left; }
+.nts-appearance[hidden] { display:none; }
+.nts-appearance summary { box-sizing:border-box; display:flex; align-items:center; justify-content:center; min-height:44px; min-width:60px; padding:.4rem .6rem; font-size:.7rem; color:#eef6f3; border:1px solid #bfd5d577; border-radius:.6rem; background:#163945e8; cursor:pointer; pointer-events:auto; list-style:none; }
+.nts-appearance summary::-webkit-details-marker { display:none; }
+.nts-appearance[open] summary { border-color:#d3c4dc; }
+.nts-presence-controls .nts-appearance-panel { display:block; position:absolute; box-sizing:border-box; padding:.65rem; overflow:auto; color:#eef6f3; border:1px solid #bfd5d588; border-radius:.6rem; background:#193d4af5; pointer-events:auto; box-shadow:0 4px 16px #0b243233; }
+.nts-appearance-panel > p { margin:0 0 .4rem; font-size:.72rem; }
+.nts-appearance-panel fieldset { border:0; padding:0; margin:0 0 .3rem; min-width:0; }
+.nts-appearance-panel fieldset:last-child { margin-bottom:0; }
+.nts-appearance-panel legend { padding:0; font-size:.66rem; color:#d0dfe2; margin-bottom:.2rem; }
+.nts-presence-controls .nts-appearance-panel div { justify-content:start; flex-wrap:wrap; gap:4px; }
+.nts-presence-controls .nts-appearance-panel button { display:inline-flex; align-items:center; gap:4px; min-height:44px; min-width:56px; font-size:.68rem; padding:.35rem .4rem; border-color:#b4ced080; }
+.nts-appearance-panel button[aria-pressed="true"] { border-color:#eef6f3; outline:1px solid #eef6f3; outline-offset:-3px; }
+.nts-swatch { width:9px; height:9px; border-radius:50%; border:1px solid #ffffff77; flex:0 0 auto; }
+.nts-color-check { display:inline-block; width:.8em; visibility:hidden; }
+.nts-appearance-panel button[aria-pressed="true"] .nts-color-check { visibility:visible; }
+.nts-appearance summary:focus-visible, .nts-appearance button:focus-visible { outline:2px solid #f0dfba; outline-offset:3px; }
+.nts-view[data-layout="compact"] .nts-appearance { position:relative; right:auto; top:auto; }
+.nts-view[data-layout="compact"] .nts-appearance summary { font-size:.6rem; }
+.nts-view[data-layout="compact"] .nts-appearance-panel button { min-height:44px; min-width:56px; font-size:.68rem; }
+@media (min-height:621px) { .nts-view[data-layout="compact"]:not(.is-dom):not(.is-inspection):not(.is-introduction) .nts-reading-pair { top:var(--nts-reading-top,255px); } }
 @media (max-width:799px), (max-aspect-ratio: 17/20) {
   .nts-view[data-layout="compact"].is-inspection .nts-presence-controls { top:125px !important; }
   .nts-view.is-inspection .nts-orbit { flex-direction:row; align-items:center; width:100%; }
