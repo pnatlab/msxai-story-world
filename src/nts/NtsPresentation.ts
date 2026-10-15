@@ -211,6 +211,75 @@ function eyeCatchlightGeometry(eyes: readonly THREE.BufferGeometry[]): THREE.Buf
   geometry.setIndex(indices); geometry.computeVertexNormals(); return geometry;
 }
 
+/** Optional authored styling, separate from all base face/hair geometry and identity. */
+function createBeautyStyling(head: THREE.BufferGeometry, upperLids: readonly THREE.BufferGeometry[]): THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>[] {
+  const material = new THREE.MeshStandardMaterial({ color: "#ffffff", vertexColors: true, transparent: true,
+    depthWrite: false, depthTest: true, roughness: 1, metalness: 0, emissive: "#b78290", emissiveIntensity: .055 });
+  const samplerMaterial = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+  const surface = new THREE.Mesh(head, samplerMaterial), ray = new THREE.Raycaster(), direction = new THREE.Vector3(0, 0, -1);
+  const patch = (y: number, halfWidth: number, halfHeight: number, color: string, opacity: number): THREE.BufferGeometry => {
+    const positions: number[] = [], normals: number[] = [], colors: number[] = [], indices: number[] = [];
+    const tint = new THREE.Color(color), sides = 24, rings = 5;
+    for (const sign of [-1, 1]) {
+      const centerX = sign * (y > 1.57 ? .038 : .052), base = positions.length / 3;
+      for (let row = 0; row <= rings; row++) {
+        const r = row / rings, count = row ? sides : 1;
+        for (let side = 0; side < count; side++) {
+          const angle = side / sides * Math.PI * 2;
+          ray.set(new THREE.Vector3(centerX + Math.cos(angle) * halfWidth * r, y + Math.sin(angle) * halfHeight * r, .2), direction);
+          const hit = ray.intersectObject(surface)[0];
+          if (!hit?.normal) throw Error("beauty surface");
+          const point = hit.point.clone().addScaledVector(hit.normal, .00018);
+          positions.push(point.x, point.y, point.z); normals.push(hit.normal.x, hit.normal.y, hit.normal.z);
+          colors.push(tint.r, tint.g, tint.b, opacity * Math.pow(1 - r * r, 2));
+        }
+        if (!row) continue;
+        const current = base + 1 + (row - 1) * sides;
+        for (let side = 0; side < sides; side++) {
+          const next = (side + 1) % sides;
+          if (row === 1) indices.push(base, current + side, current + next);
+          else {
+            const previous = current - sides;
+            indices.push(previous + side, current + side, current + next, previous + side, current + next, previous + next);
+          }
+        }
+      }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+    geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 4)); geometry.setIndex(indices); return geometry;
+  };
+  let eyeTone: THREE.BufferGeometry, blush: THREE.BufferGeometry;
+  try {
+    eyeTone = patch(1.5845, .023, .009, "#c58b9b", .52);
+    blush = patch(1.551, .022, .011, "#cf929d", .23);
+  } finally { samplerMaterial.dispose(); }
+  // Copy only the existing thin contour surface: no aperture change, wing or lashes.
+  const positions: number[] = [], normals: number[] = [], colors: number[] = [], indices: number[] = [];
+  const tint = new THREE.Color("#4f3e43"), normal = new THREE.Vector3();
+  for (const lid of upperLids) {
+    const p = lid.getAttribute("position"), n = lid.getAttribute("normal"), base = positions.length / 3;
+    for (let i = 0; i < p.count; i++) {
+      normal.fromBufferAttribute(n, i);
+      const point = new THREE.Vector3().fromBufferAttribute(p, i).addScaledVector(normal, .00008);
+      const t = THREE.MathUtils.clamp((Math.abs(p.getX(i)) - .020) / .036, 0, 1);
+      const fade = THREE.MathUtils.smoothstep(t, 0, .12) * (1 - THREE.MathUtils.smoothstep(t, .94, 1));
+      const emphasis = .2 + .8 * THREE.MathUtils.smoothstep(t, .15, .65);
+      positions.push(point.x, point.y, point.z); normals.push(normal.x, normal.y, normal.z);
+      colors.push(tint.r, tint.g, tint.b, .38 * fade * emphasis);
+    }
+    for (const index of lid.getIndex()!.array) indices.push(base + index);
+  }
+  const definition = new THREE.BufferGeometry();
+  definition.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  definition.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+  definition.setAttribute("color", new THREE.Float32BufferAttribute(colors, 4)); definition.setIndex(indices);
+  return [["EyeTone", eyeTone], ["UpperDefinition", definition], ["UpperCheek", blush]].map(([name, geometry]) => {
+    const mesh = new THREE.Mesh(geometry as THREE.BufferGeometry, material); mesh.name = `NTS_Beauty_SoftRose_${name}`; return mesh;
+  });
+}
+
 /** Bounded destination presentation. Reuses the renderer/director; no semantic controller. */
 export class NtsPresentation {
   readonly group = new THREE.Group();
@@ -444,6 +513,7 @@ export class NtsPresentation {
       const shared = new Map<string, THREE.MeshStandardMaterial>();
       const fringeSupport: THREE.BufferGeometry[] = [];
       const eyeSurfaces: THREE.BufferGeometry[] = [];
+      const beautyLids: THREE.BufferGeometry[] = [];
       for (const item of info.objects) {
         // Keep binary assets unchanged; bounded face refinements use cloned attributes.
         if (item.name === "NTS_2C_Hair_LowPonytail") continue;
@@ -453,6 +523,7 @@ export class NtsPresentation {
         if (/^NTS_2C_(Eye|Lid_Upper|Lid_Lower)_[RL]$/.test(item.name)) softenEyeOpening(geo);
         if (item.name === "NTS_2C_Head_OriginalStylized") shortenChin(geo);
         if (item.role === "eye") eyeSurfaces.push(geo);
+        if (/^NTS_2C_Lid_Upper_[RL]$/.test(item.name)) beautyLids.push(geo);
         if (["mask", "loop", "print"].includes(item.role)) compactMask(geo, item.role === "loop");
         if (item.name === "NTS_2C_Head_OriginalStylized") fringeSupport.push(geo);
         const upperEye = /^NTS_2C_Lid_Upper_[RL]$/.test(item.name), materialKey = upperEye ? "upper-eye" : item.role;
@@ -479,6 +550,9 @@ export class NtsPresentation {
       const catchlightGeometry = eyeCatchlightGeometry(eyeSurfaces); this.geometries.add(catchlightGeometry);
       const catchlightMaterial = new THREE.MeshBasicMaterial({ color: "#f5f7f1" }); this.materials.add(catchlightMaterial);
       const catchlights = new THREE.Mesh(catchlightGeometry, catchlightMaterial); catchlights.name = "NTS_Eyes_StaticCatchlights"; this.presence.add(catchlights);
+      for (const mesh of createBeautyStyling(fringeSupport[0], beautyLids)) {
+        this.geometries.add(mesh.geometry); this.materials.add(mesh.material); this.presence.add(mesh);
+      }
       this.presence.scale.setScalar(6); this.presence.position.set(-4.8, -4.6, 1);
       this.loaded = true; this.presence.visible = this.active && this.state?.phase === "settled" && !this.state.dom; this.changed();
     } catch { if (!this.disposed && !this.abort.signal.aborted) { this.failed = true; this.failedPresence(); } }
