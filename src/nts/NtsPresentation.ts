@@ -10,20 +10,44 @@ import { MOUSE_SIGNATURE_NAME, mouseSignatureGeometry } from "./mouseSignature";
 interface SnapshotObject { name: string; role: string; position: { offset: number; count: number }; normal: { offset: number; count: number }; index: { offset: number; count: number }; color?: { offset: number; count: number }; }
 type SavedControls = { minDistance: number; maxDistance: number; minPolarAngle: number; maxPolarAngle: number; minAzimuthAngle: number; maxAzimuthAngle: number; enablePan: boolean; enableZoom: boolean; enableRotate: boolean; };
 
-/** One static low braid, joined to the authored scalp in its local coordinates. */
-function lowBraidGeometry(): THREE.BufferGeometry {
+/** Reviewed H.1 hairstyle: soft overlapping updo volumes and two tapered face tendrils. */
+function softBunGeometry(): THREE.BufferGeometry {
   const positions: number[] = [], indices: number[] = [];
-  const sweep = (points: THREE.Vector3[], segments: number, sides: number, radius: (t: number) => number, flatten: number): void => {
-    const curve = new THREE.CatmullRomCurve3(points);
-    const base = positions.length / 3;
+  const append = (geometry: THREE.BufferGeometry): void => {
+    const offset = positions.length / 3, attribute = geometry.getAttribute("position");
+    for (let i = 0; i < attribute.count; i++) positions.push(attribute.getX(i), attribute.getY(i), attribute.getZ(i));
+    const index = geometry.getIndex()!;
+    for (let i = 0; i < index.count; i++) indices.push(offset + index.getX(i));
+    geometry.dispose();
+  };
+  // An irregular, tucked core is partly embedded in the existing rear crown.
+  const core = new THREE.SphereGeometry(1, 28, 18), vertices = core.getAttribute("position");
+  for (let i = 0; i < vertices.count; i++) {
+    const x = vertices.getX(i), y = vertices.getY(i), z = vertices.getZ(i);
+    const fold = 1 + .06 * Math.sin(Math.atan2(z, x) * 3 + y * 2);
+    vertices.setXYZ(i, -.004 + x * .050 * fold, 1.678 + y * .046 * fold, -.067 + z * .044 * fold);
+  }
+  append(core);
+  // Two broad diagonal tucks sit mostly inside the core. Their overlap gives a
+  // softly irregular knot without open loops, sharp ribbons, or strand bundles.
+  for (const tuck of [
+    { center: [-.018, 1.694, -.073], scale: [.037, .030, .036], tilt: -.48 },
+    { center: [.020, 1.678, -.080], scale: [.035, .031, .037], tilt: .52 },
+  ]) {
+    const geometry = new THREE.SphereGeometry(1, 24, 16);
+    geometry.scale(tuck.scale[0], tuck.scale[1], tuck.scale[2]);
+    geometry.rotateZ(tuck.tilt); geometry.translate(...tuck.center as [number, number, number]); append(geometry);
+  }
+  const sweep = (points: readonly number[][], segments: number, sides: number,
+    width: (t: number) => number, depth: (t: number) => number): void => {
+    const path = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(...p))), base = positions.length / 3;
     for (let row = 0; row <= segments; row++) {
-      const t = row / segments, center = curve.getPoint(t), tangent = curve.getTangent(t);
-      const lateral = new THREE.Vector3(1, 0, 0);
-      lateral.addScaledVector(tangent, -lateral.dot(tangent)).normalize();
-      const outward = new THREE.Vector3().crossVectors(tangent, lateral).normalize();
+      const t = row / segments, center = path.getPoint(t), tangent = path.getTangent(t);
+      const across = new THREE.Vector3(-tangent.y, tangent.x, 0).normalize();
+      const normal = new THREE.Vector3().crossVectors(tangent, across).normalize();
       for (let side = 0; side < sides; side++) {
-        const a = side / sides * Math.PI * 2;
-        const p = center.clone().addScaledVector(lateral, Math.cos(a) * radius(t)).addScaledVector(outward, Math.sin(a) * radius(t) * flatten);
+        const angle = side / sides * Math.PI * 2;
+        const p = center.clone().addScaledVector(across, Math.cos(angle) * width(t)).addScaledVector(normal, Math.sin(angle) * depth(t));
         positions.push(p.x, p.y, p.z);
         if (row < segments) {
           const i = base + row * sides + side, next = base + row * sides + (side + 1) % sides;
@@ -31,52 +55,27 @@ function lowBraidGeometry(): THREE.BufferGeometry {
         }
       }
     }
-    for (const end of [0, segments]) {
-      const center = curve.getPoint(end / segments), cap = positions.length / 3;
+    for (const row of [0, segments]) {
+      const center = path.getPoint(row / segments), cap = positions.length / 3;
       positions.push(center.x, center.y, center.z);
       for (let side = 0; side < sides; side++) {
-        const a = base + end * sides + side, b = base + end * sides + (side + 1) % sides;
-        indices.push(cap, end ? a : b, end ? b : a);
+        const a = base + row * sides + side, b = base + row * sides + (side + 1) % sides;
+        indices.push(cap, row ? a : b, row ? b : a);
       }
     }
   };
-  // The gathering begins inside the rear scalp and closes around the braid roots.
-  sweep([
-    new THREE.Vector3(0, 1.575, -.043),
-    new THREE.Vector3(0, 1.54, -.083),
-    new THREE.Vector3(0, 1.52, -.103),
-    new THREE.Vector3(0, 1.50, -.115),
-  ], 20, 12, t => THREE.MathUtils.lerp(.029, .021, t), .7);
-  // Wearer-left shoulder: remain behind the ear, then turn below the mask loops.
-  const path = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0, 1.515, -.103),
-    new THREE.Vector3(.055, 1.492, -.102),
-    new THREE.Vector3(.090, 1.465, -.070),
-    new THREE.Vector3(.110, 1.423, -.010),
-    new THREE.Vector3(.111, 1.381, .034),
-    new THREE.Vector3(.108, 1.348, .069),
-    new THREE.Vector3(.103, 1.306, .081),
-    new THREE.Vector3(.089, 1.250, .083),
-  ]);
-  // Three continuous strands exchange left/right positions and alternate depth.
-  // They are merged into one mesh; no detached beads, simulation or moving parts.
-  for (let strand = 0; strand < 3; strand++) {
-    const points = Array.from({ length: 85 }, (_, row) => {
-      const t = row / 84, phase = t * Math.PI * 8 + strand * Math.PI * 2 / 3;
-      const taper = THREE.MathUtils.lerp(1, .4, t);
-      const center = path.getPoint(t), tangent = path.getTangent(t);
-      const lateral = new THREE.Vector3(1, 0, 0);
-      lateral.addScaledVector(tangent, -lateral.dot(tangent)).normalize();
-      const depth = new THREE.Vector3().crossVectors(tangent, lateral).normalize();
-      return center.addScaledVector(lateral, Math.sin(phase) * .019 * taper)
-        .addScaledVector(depth, Math.sin(phase * 2) * .008 * taper);
-    });
-    sweep(points, 84, 10, t => (.0095 - .003 * t) * (t > .9 ? THREE.MathUtils.lerp(1, .22, (t - .9) / .1) : 1), .85);
+  // A light S-curve per side stays outside the mask/ear loops; its blade-like
+  // cross-section and tapered tip avoid the former long round-strip silhouette.
+  for (const sign of [-1, 1]) {
+    const points = [[.078, 1.604, .037], [.094, 1.581, .032], [.105, 1.548, .027],
+      [.106, 1.521, .034], [.097, 1.497, .040], [.092, 1.476, .031]]
+      .map(([x, y, z]) => [sign * x, y + (sign < 0 ? .002 : 0), z]);
+    sweep(points, 28, 8, t => (.0045 + .0013 * Math.sin(Math.PI * t)) * Math.pow(1 - t, .65) + .00015,
+      t => .0021 * (1 - t) + .0001);
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setIndex(indices); geometry.computeVertexNormals();
-  return geometry;
+  geometry.setIndex(indices); geometry.computeVertexNormals(); return geometry;
 }
 
 /** A small rounded fringe follows the forehead; its ends nest under authored hair. */
@@ -591,8 +590,8 @@ export class NtsPresentation {
         if (item.role === "print") this.signature = mesh;
         if (item.role === "body") mesh.renderOrder = 1; this.presence.add(mesh);
       }
-      const hairGeometry = lowBraidGeometry(); this.geometries.add(hairGeometry);
-      const braid = new THREE.Mesh(hairGeometry, shared.get("hair")!); braid.name = "NTS_Hair_LowSingleBraid"; this.presence.add(braid);
+      const hairGeometry = softBunGeometry(); this.geometries.add(hairGeometry);
+      const hair = new THREE.Mesh(hairGeometry, shared.get("hair")!); hair.name = "NTS_Hair_SoftRomanticBun"; this.presence.add(hair);
       const fringeGeometry = sideFringeGeometry(fringeSupport); this.geometries.add(fringeGeometry);
       const fringe = new THREE.Mesh(fringeGeometry, shared.get("hair")!); fringe.name = "NTS_Hair_SoftSideFringe"; this.presence.add(fringe);
       const catchlightGeometry = eyeCatchlightGeometry(eyeSurfaces); this.geometries.add(catchlightGeometry);
