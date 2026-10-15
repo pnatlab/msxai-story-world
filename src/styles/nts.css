@@ -131,3 +131,7 @@
   .nts-view.is-inspection .nts-orbit span { max-width:95px; font-size:10px; }
   .nts-view.is-inspection .nts-orbit input { width:145px; }
 }
+.nts-presence-controls [data-nts="inspect-mark"], .nts-presence-controls [data-nts="mark-back"] { min-height:44px; }
+.nts-view.is-mark-inspection .nts-presence-controls, .nts-view[data-layout="compact"].is-mark-inspection .nts-presence-controls { top:140px !important; left:50% !important; right:auto; transform:translateX(-50%); width:min(460px,90%) !important; height:auto !important; }
+.nts-view.is-mark-inspection .nts-angles, .nts-view.is-mark-inspection .nts-appearance, .nts-view.is-mark-inspection .nts-memory-nav { display:none; }
+@media (max-height:620px) { .nts-view.is-mark-inspection .nts-presence-controls, .nts-view[data-layout="compact"].is-mark-inspection .nts-presence-controls { top:140px !important; left:16px !important; width:200px !important; transform:none; text-align:left; } }

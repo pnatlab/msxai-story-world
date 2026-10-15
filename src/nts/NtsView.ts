@@ -1,5 +1,5 @@
 import type { Locale } from "../story/localeState";
-import { INTRO, MEMORIES, memory, memoryAsset, NTS_COPY, type MemoryId } from "./content";
+import { INTRO, MARK_COPY, MEMORIES, memory, memoryAsset, NTS_COPY, type MemoryId } from "./content";
 import type { NtsState } from "./visitState";
 import { compactNts, type NtsComposition, type ProjectedBox } from "./composition";
 import { APPEARANCE_COPY, MASK_COLORS, OUTFIT_COLORS, type MaskColor, type OutfitColor } from "./appearance";
@@ -22,6 +22,7 @@ export class NtsView {
     project?: () => NtsComposition | undefined;
     memoryLift?: (active: boolean) => void;
     outfit: (color: OutfitColor) => void; mask: (color: MaskColor) => void;
+    inspectMark: (active: boolean) => void;
   }, private readonly fallback: boolean) {
     this.element.className = "nts-view"; this.element.hidden = true;
     this.element.setAttribute("aria-labelledby", "nts-title");
@@ -30,7 +31,7 @@ export class NtsView {
       <figure class="nts-dom-image" hidden><img width="667" height="1000" draggable="false"><figcaption></figcaption></figure>
       <section class="nts-caption" hidden aria-labelledby="nts-memory-title"><p class="nts-eyebrow" data-nts="image"></p><h2 id="nts-memory-title"></h2><p class="nts-authored"></p><p class="nts-setting" hidden></p><button type="button" data-nts="close-reading"></button></section>
       <section class="nts-intro" hidden aria-labelledby="nts-intro-title"><p data-nts="intro-label"></p><h2 id="nts-intro-title" tabindex="-1">NuTuenSai</h2><p class="nts-authored"></p><button type="button" data-nts="close-intro"></button></section>
-      <section class="nts-presence-controls"><p data-nts="presence"></p><div><button type="button" data-nts="meet"></button><button type="button" data-nts="inspect"></button></div><div class="nts-angles" hidden><button type="button" data-angle="front"></button><button type="button" data-angle="left"></button><button type="button" data-angle="right"></button></div><p class="nts-status" aria-live="polite"></p></section>
+      <section class="nts-presence-controls"><p data-nts="presence"></p><div><button type="button" data-nts="meet"></button><button type="button" data-nts="inspect"></button><button type="button" data-nts="mark-back" hidden></button></div><div class="nts-angles" hidden><button type="button" data-angle="front"></button><button type="button" data-angle="left"></button><button type="button" data-angle="right"></button><button type="button" data-nts="inspect-mark" hidden></button></div><p class="nts-status" aria-live="polite"></p></section>
       <footer class="nts-footer"><nav class="nts-memory-nav"></nav><p class="nts-closing" hidden></p><div class="nts-return-row"><small data-nts="agency"></small><button type="button" data-nts="return"></button></div><details class="nts-meaning"><summary>Gallery / Presence / Field</summary><p class="nts-presence-meaning"></p><p data-nts="field"></p><p data-nts="progression"></p></details></footer>`;
     this.element.querySelector<HTMLElement>(".nts-caption")!.tabIndex = 0;
     const readingHint = document.createElement("p"); readingHint.className = "nts-reading-hint";
@@ -52,6 +53,8 @@ export class NtsView {
     button("close-intro").addEventListener("click", actions.closeIntroduction);
     button("close-reading").addEventListener("click", actions.closeReading);
     button("inspect").addEventListener("click", () => actions.inspect(this.state?.inspection ? false : "front"));
+    button("inspect-mark").addEventListener("click", () => actions.inspectMark(true));
+    button("mark-back").addEventListener("click", () => actions.inspectMark(false));
     button("dom").addEventListener("click", () => actions.dom(!this.state?.dom));
     const orbit = document.createElement("label"); orbit.className = "nts-orbit";
     orbit.innerHTML = '<span></span><input type="range" min="-90" max="90" step="5" value="0">';
@@ -105,7 +108,7 @@ export class NtsView {
     return { x: rect.x + (rect.width - width) / 2, y: rect.y + (rect.height - height) / 2, width, height };
   }
   private liftDestination(): { x: number; y: number; width: number; height: number } | undefined {
-    if (!this.state?.reading || this.state.inspection || this.state.introduction) return;
+    if (!this.state?.reading || this.state.inspection || this.state.markInspection || this.state.introduction) return;
     if (this.fallback || this.state.dom || compactNts(window.innerWidth, window.innerHeight)) {
       const image = this.element.querySelector<HTMLImageElement>(".nts-dom-image img")!;
       const box = this.imageBox(image);
@@ -153,7 +156,7 @@ export class NtsView {
   presenceFailed(): void { this.avatarFailed = true; if (this.state) this.render(this.state); }
   render(state: NtsState): void {
     const previous = this.state; this.state = state;
-    if (this.lift && (state.phase !== "settled" || state.memoryId !== this.lift.id || !state.reading || state.inspection || state.introduction || state.dom !== previous?.dom)) this.cancelLift();
+    if (this.lift && (state.phase !== "settled" || state.memoryId !== this.lift.id || !state.reading || state.inspection || state.markInspection || state.introduction || state.dom !== previous?.dom)) this.cancelLift();
     this.element.hidden = state.phase === "closed";
     if (this.element.hidden) {
       this.element.querySelector(".nts-dom-image img")!.removeAttribute("src"); this.imageId = undefined;
@@ -167,7 +170,7 @@ export class NtsView {
     const dom = this.fallback || state.dom;
     const compact = compactNts(window.innerWidth, window.innerHeight);
     const appearanceCopy = APPEARANCE_COPY[this.locale];
-    this.appearance.hidden = dom || this.avatarFailed || state.phase !== "settled" || state.introduction;
+    this.appearance.hidden = dom || this.avatarFailed || state.phase !== "settled" || state.introduction || state.markInspection;
     if (this.appearance.hidden) this.appearance.open = false;
     this.appearance.querySelector("summary")!.textContent = appearanceCopy.colors;
     this.appearance.querySelector("#nts-appearance-title")!.textContent = appearanceCopy.title;
@@ -182,6 +185,7 @@ export class NtsView {
     this.element.dataset.layout = compact ? "compact" : "spatial";
     this.element.classList.toggle("is-introduction", state.introduction);
     this.element.classList.toggle("is-dom", dom); this.element.classList.toggle("is-inspection", Boolean(state.inspection));
+    this.element.classList.toggle("is-mark-inspection", state.markInspection);
     this.element.classList.toggle("is-reading", state.reading);
     this.element.dataset.phase = state.phase;
     this.element.querySelector("h1")!.textContent = c.title;
@@ -189,7 +193,13 @@ export class NtsView {
     this.element.querySelector(".nts-presence-meaning")!.textContent = c.presence;
     for (const [key, value] of Object.entries({ return: c.return, meet: c.meet, inspect: state.inspection ? c.leaveInspection : c.inspect, dom: dom ? c.spatial : c.dom, "close-intro": c.close, "close-reading": c.hideReading, "intro-label": c.introLabel })) this.element.querySelector(`[data-nts="${key}"]`)!.textContent = value;
     for (const angle of ["front", "left", "right"] as const) { const b = this.element.querySelector<HTMLButtonElement>(`[data-angle="${angle}"]`)!; b.textContent = c[angle]; b.setAttribute("aria-pressed", String(state.inspection === angle)); }
-    this.element.querySelector<HTMLElement>(".nts-angles")!.hidden = !state.inspection;
+    this.element.querySelector<HTMLElement>(".nts-angles")!.hidden = !state.inspection || state.markInspection;
+    const mark = this.element.querySelector<HTMLButtonElement>('[data-nts="inspect-mark"]')!;
+    mark.textContent = MARK_COPY[this.locale].inspect; mark.hidden = dom || this.avatarFailed || !state.inspection || state.markInspection || state.introduction;
+    mark.disabled = !this.actions.project?.()?.mark || state.phase !== "settled";
+    const markBack = this.element.querySelector<HTMLButtonElement>('[data-nts="mark-back"]')!;
+    markBack.textContent = MARK_COPY[this.locale].back; markBack.hidden = !state.markInspection;
+    for (const name of ["meet", "inspect"]) this.element.querySelector<HTMLButtonElement>(`[data-nts="${name}"]`)!.hidden = state.markInspection;
     const orbit = this.element.querySelector<HTMLInputElement>(".nts-orbit input")!;
     orbit.value = String(typeof state.inspection === "number" ? state.inspection : state.inspection === "left" ? -90 : state.inspection === "right" ? 90 : 0);
     const orbitLabel = this.locale === "th" ? "มุมสำรวจ −90° ถึง +90°" : "Inspection angle −90° to +90°";
@@ -198,7 +208,7 @@ export class NtsView {
     this.element.querySelector("nav")!.setAttribute("aria-label", c.memories);
     this.element.querySelectorAll<HTMLButtonElement>("[data-nts-memory]").forEach(b => { const trace = memory(b.dataset.ntsMemory as MemoryId); b.querySelector("span")!.textContent = `${b.dataset.index} · ${trace.title[this.locale]}`; b.querySelector("img")!.alt = trace.alt[this.locale]; b.setAttribute("aria-label", `${b.dataset.index} · ${trace.title[this.locale]}`); b.setAttribute("aria-pressed", String(b.dataset.ntsMemory === state.memoryId)); b.disabled = state.phase !== "settled"; });
     const arrival = this.element.querySelector<HTMLElement>(".nts-arrival")!; arrival.hidden = state.phase !== "approaching"; arrival.textContent = c.journey;
-    const caption = this.element.querySelector<HTMLElement>(".nts-caption")!; caption.hidden = !state.reading || Boolean(state.inspection) || state.introduction;
+    const caption = this.element.querySelector<HTMLElement>(".nts-caption")!; caption.hidden = !state.reading || Boolean(state.inspection) || state.markInspection || state.introduction;
     const pair = this.element.querySelector<HTMLElement>(".nts-reading-pair")!; pair.hidden = caption.hidden;
     if (previous?.memoryId !== state.memoryId) { pair.scrollTop = 0; caption.scrollTop = 0; }
     caption.querySelector("h2")!.textContent = item.title[this.locale]; caption.querySelector(".nts-authored")!.textContent = item[this.locale];
@@ -206,7 +216,7 @@ export class NtsView {
     const setting = caption.querySelector<HTMLElement>(".nts-setting")!; setting.hidden = item.id !== "s5"; setting.textContent = c.setting;
     const intro = this.element.querySelector<HTMLElement>(".nts-intro")!; intro.hidden = !state.introduction; intro.querySelector(".nts-authored")!.textContent = INTRO[this.locale];
     const figure = this.element.querySelector<HTMLElement>("figure")!;
-    figure.hidden = !(dom || compact) || !state.reading || Boolean(state.inspection) || state.introduction;
+    figure.hidden = !(dom || compact) || !state.reading || Boolean(state.inspection) || state.markInspection || state.introduction;
     const image = figure.querySelector<HTMLImageElement>("img")!;
     if (!figure.hidden && this.imageId !== item.id) { this.imageId = item.id; image.src = memoryAsset(item.id); }
     if (figure.hidden) { image.removeAttribute("src"); this.imageId = undefined; }
@@ -215,6 +225,8 @@ export class NtsView {
     this.element.querySelector<HTMLElement>(".nts-status")!.textContent = this.avatarFailed ? c.avatarFailed : this.failedImages.has(item.id) ? c.missing : "";
     const closing = this.element.querySelector<HTMLElement>(".nts-closing")!; closing.hidden = item.id !== "s6" || !state.reading || Boolean(state.inspection) || state.introduction; closing.textContent = `${c.quiet}\n${c.closing}`;
     if (!previous?.introduction && state.introduction) intro.querySelector<HTMLElement>("h2")!.focus({ preventScroll: true });
+    else if (!previous?.markInspection && state.markInspection) markBack.focus({ preventScroll: true });
+    else if (previous?.markInspection && !state.markInspection && state.phase === "settled" && !mark.hidden) mark.focus({ preventScroll: true });
     else if (previous?.introduction && !state.introduction) this.element.querySelector<HTMLButtonElement>('[data-nts="meet"]')!.focus({ preventScroll: true });
     else if (previous?.inspection && !state.inspection) this.element.querySelector<HTMLButtonElement>('[data-nts="inspect"]')!.focus({ preventScroll: true });
     this.refreshAnchors();
@@ -224,6 +236,7 @@ export class NtsView {
     const c = this.actions.project?.(); const width = this.element.clientWidth, height = this.element.clientHeight;
     const compact = compactNts(width, height), dom = this.fallback || this.state.dom;
     const tether = this.element.querySelector<HTMLElement>(".nts-voice-tether")!; tether.hidden = !this.state.introduction || dom || !c;
+    this.element.querySelector<HTMLButtonElement>('[data-nts="inspect-mark"]')!.disabled = !c?.mark || this.state.phase !== "settled";
     const place = (element: HTMLElement, box: ProjectedBox, readable = false) => {
       const w = readable ? Math.max(250, Math.min(355, box.width)) : box.width;
       const footer = this.element.querySelector("footer")!.getBoundingClientRect().height;
@@ -232,7 +245,7 @@ export class NtsView {
       element.style.left = `${x}px`; element.style.top = `${y}px`; element.style.width = `${w}px`; element.style.height = `${h}px`;
       return { x, y, width: w, height: h };
     };
-    if (c && !compact && !dom && !this.state.inspection) {
+    if (c && !compact && !dom && !this.state.inspection && !this.state.markInspection) {
       this.element.querySelectorAll<HTMLButtonElement>("[data-nts-memory]").forEach(b => {
         const box = c.traces[b.dataset.ntsMemory as MemoryId];
         b.style.left = `${box.x}px`; b.style.top = `${Math.min(height - 130, box.y)}px`; b.style.width = `${Math.max(48, box.width)}px`;

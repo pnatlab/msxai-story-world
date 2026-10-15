@@ -5,6 +5,7 @@ import { MEMORIES, memoryAsset, type MemoryId } from "./content";
 import type { NtsState } from "./visitState";
 import { compactNts, TRACE_POSITIONS, type NtsComposition, type ProjectedBox } from "./composition";
 import { DEFAULT_APPEARANCE, MASK_COLORS, OUTFIT_COLORS } from "./appearance";
+import { MOUSE_SIGNATURE_NAME, mouseSignatureGeometry } from "./mouseSignature";
 
 interface SnapshotObject { name: string; role: string; position: { offset: number; count: number }; normal: { offset: number; count: number }; index: { offset: number; count: number }; color?: { offset: number; count: number }; }
 type SavedControls = { minDistance: number; maxDistance: number; minPolarAngle: number; maxPolarAngle: number; minAzimuthAngle: number; maxAzimuthAngle: number; enablePan: boolean; enableZoom: boolean; enableRotate: boolean; };
@@ -296,6 +297,9 @@ export class NtsPresentation {
   private readonly materials = new Set<THREE.Material>();
   private outfitMaterial?: THREE.MeshStandardMaterial;
   private maskMaterial?: THREE.MeshStandardMaterial;
+  private signature?: THREE.Mesh;
+  private markReturn?: { camera: CameraState; width: number; height: number; exact: boolean };
+  private reducedMotion = false;
   private readonly savedVisibility = new Map<THREE.Object3D, boolean>();
   private savedCamera?: CameraState;
   private savedControls?: SavedControls;
@@ -390,11 +394,11 @@ export class NtsPresentation {
     this.director.moveTo(this.arrivalCamera(reduced ? 0 : 1600), reduced);
   }
   setState(state: NtsState, reduced: boolean): void {
-    const previous = this.state; this.state = state;
+    const previous = this.state; this.state = state; this.reducedMotion = reduced;
     this.applyAppearance();
     if (!this.active) return;
     if (reduced && state.phase !== "returning") this.setBlend(1, 0);
-    if (reduced || state.dom || state.phase !== "settled") this.motionUntil = 0;
+    if (reduced || state.dom || state.markInspection || state.phase !== "settled") this.motionUntil = 0;
     else if (previous?.phase !== "settled" || previous.memoryId !== state.memoryId) {
       // One quiet settling response, not a permanent animation loop or data signal.
       this.motionStarted = performance.now(); this.motionUntil = this.motionStarted + 3200;
@@ -404,7 +408,19 @@ export class NtsPresentation {
     this.presence.visible = this.loaded && state.phase === "settled" && !state.dom;
     // Opaque identity zone stays opaque; only supporting presence is quieter while reading.
     this.presence.traverse(object => { const mesh = object as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>; if (mesh.material) mesh.material.emissiveIntensity = state.reading && !state.inspection ? .015 : .055; });
-    if (state.phase === "settled" && (state.inspection !== previous?.inspection || state.introduction !== previous?.introduction || state.reading !== previous?.reading)) this.moveForState(reduced);
+    const modeChanged = state.inspection !== previous?.inspection || state.introduction !== previous?.introduction || state.reading !== previous?.reading;
+    if (state.markInspection && !previous?.markInspection) {
+      const camera = this.director.camera;
+      this.markReturn = { camera: { id: "NTS-mark-return", position: camera.position.toArray() as [number, number, number], target: this.director.target.toArray() as [number, number, number], fov: camera.fov, durationMs: 500, allowManualControl: false }, width: window.innerWidth, height: window.innerHeight, exact: !this.orbit && !this.director.isTransitioning };
+      this.orbit = undefined; this.moveForState(reduced);
+    } else if (previous?.markInspection && !state.markInspection) {
+      this.orbit = undefined;
+      const saved = this.markReturn; this.markReturn = undefined;
+      if (state.phase === "settled") {
+        if (!modeChanged && state.dom === previous.dom && saved?.exact && saved.width === window.innerWidth && saved.height === window.innerHeight) this.director.moveTo(saved.camera, reduced);
+        else this.moveForState(reduced);
+      }
+    } else if (state.phase === "settled" && modeChanged) this.moveForState(reduced);
     this.changed();
   }
   private applyAppearance(): void {
@@ -414,7 +430,7 @@ export class NtsPresentation {
   }
   beginReturn(reduced: boolean, fallbackCamera: CameraState): void {
     this.abort.abort();
-    this.orbit = undefined; this.motionUntil = 0;
+    this.orbit = undefined; this.markReturn = undefined; this.motionUntil = 0;
     if (!this.savedCamera) return;
     this.setBlend(0, reduced ? 0 : 650);
     const target = this.savedPortrait === this.portrait ? this.savedCamera : fallbackCamera;
@@ -432,7 +448,11 @@ export class NtsPresentation {
     this.panels.forEach(panel => { panel.material.map = null; panel.material.needsUpdate = true; panel.visible = false; });
     return manual;
   }
-  resize(portrait: boolean, reduced: boolean): void { this.portrait = portrait; this.compact = compactNts(window.innerWidth, window.innerHeight); if (this.active) { this.loadMemories(); this.moveForState(reduced, true); } }
+  resize(portrait: boolean, reduced: boolean): void {
+    this.portrait = portrait; this.compact = compactNts(window.innerWidth, window.innerHeight);
+    if (this.markReturn && (this.markReturn.width !== window.innerWidth || this.markReturn.height !== window.innerHeight)) this.markReturn.exact = false;
+    if (this.active) { this.loadMemories(); this.moveForState(reduced, true); }
+  }
   frame(now: number): number {
     const motion = now < this.motionUntil ? Math.sin(Math.PI * (now - this.motionStarted) / 3200) : 0;
     this.livingLines.forEach((line, i) => { line.material.opacity = .13 + motion * .075; line.position.y = motion * .09 * (i % 2 ? -1 : 1); });
@@ -449,14 +469,17 @@ export class NtsPresentation {
     return this.blend;
   }
   pick(raycaster: THREE.Raycaster): "presence" | MemoryId | undefined {
-    if (!this.active || this.state?.phase !== "settled" || this.state.dom) return;
+    if (!this.active || this.state?.phase !== "settled" || this.state.dom || this.state.markInspection) return;
     if (this.presence.visible && raycaster.intersectObject(this.presence, true).length) return "presence";
     return raycaster.intersectObjects([...this.panels.values()].filter(p => p.visible), false)[0]?.object.userData.memoryId as MemoryId | undefined;
   }
   private moveForState(reduced: boolean, immediate = false): void {
     if (this.state?.phase === "returning") return;
     const duration = reduced || immediate ? 0 : 550;
-    if (this.state?.inspection) {
+    if (this.state?.markInspection) {
+      this.orbit = undefined;
+      if (this.loaded) this.director.moveTo(this.markCamera(duration), reduced || immediate);
+    } else if (this.state?.inspection) {
       const yaw = (typeof this.state.inspection === "number" ? this.state.inspection : this.state.inspection === "left" ? -90 : this.state.inspection === "right" ? 90 : 0) * Math.PI / 180;
       const local = this.director.camera.position.clone().sub(this.group.position);
       const from = Math.atan2(local.x + 4.8, local.z - 1);
@@ -472,6 +495,15 @@ export class NtsPresentation {
     } else { this.orbit = undefined; this.director.moveTo(this.arrivalCamera(duration), reduced || immediate); }
   }
   private orbitCamera(yaw: number, duration: number): CameraState { return this.cameraState([-4.8 + Math.sin(yaw) * 8, 4.8, 1 + Math.cos(yaw) * 8], [-4.8, 4.5, 1], this.compact ? 44 : 38, duration); }
+  private markCamera(duration: number): CameraState {
+    const center = this.signature!.geometry.boundingBox!.getCenter(new THREE.Vector3());
+    this.signature!.updateWorldMatrix(true, false); this.signature!.localToWorld(center);
+    // Fit the mask/eyes rather than clipping into them; narrow/short screens need more space.
+    const aspect = this.director.camera.aspect, distance = Math.max(3.0, 2.2 / Math.min(aspect, 1));
+    const target = center.clone().add(new THREE.Vector3(-.25, .14, 0));
+    const position = target.clone().add(new THREE.Vector3(.08, .06, distance));
+    return { id: "NTS-mouse-signature-inspection", position: position.toArray() as [number, number, number], target: target.toArray() as [number, number, number], fov: 34, durationMs: duration, allowManualControl: false };
+  }
   private arrivalCamera(duration: number): CameraState { return this.compact ? this.encounterCamera(duration) : this.cameraState([0, 6.6, 21], [-.5, 3.0, .3], 42, duration); }
   private encounterCamera(duration: number): CameraState { return this.compact ? this.cameraState([-3.6, 6.0, 18], [-3.6, 4, 1], 39, duration) : this.cameraState([-2.6, 6.6, 20], [-2.6, 3.5, 1], 42, duration); }
   private compactReadingCamera(duration: number): CameraState {
@@ -489,7 +521,7 @@ export class NtsPresentation {
   private setBlend(to: number, duration: number): void { this.fromBlend = this.blend; this.toBlend = to; this.started = performance.now(); this.duration = duration; }
   private loadMemories(): void {
     if (!this.state) return;
-    const next = this.state.reading && !this.state.inspection && !this.state.introduction && !this.compact && !this.state.dom ? this.state.memoryId : undefined;
+    const next = this.state.reading && !this.state.inspection && !this.state.markInspection && !this.state.introduction && !this.compact && !this.state.dom ? this.state.memoryId : undefined;
     if ([...this.wanted][0] !== next) { this.imageGeneration++; this.pending.clear(); }
     const generation = this.imageGeneration;
     this.wanted.clear();
@@ -523,17 +555,22 @@ export class NtsPresentation {
       const fringeSupport: THREE.BufferGeometry[] = [];
       const eyeSurfaces: THREE.BufferGeometry[] = [];
       const beautyLids: THREE.BufferGeometry[] = [];
+      let maskSurface: THREE.BufferGeometry | undefined;
       for (const item of info.objects) {
         // Keep binary assets unchanged; bounded face refinements use cloned attributes.
         if (item.name === "NTS_2C_Hair_LowPonytail") continue;
-        const geo = new THREE.BufferGeometry();
-        for (const key of ["position", "normal", "color"] as const) if (item[key]) geo.setAttribute(key, new THREE.BufferAttribute(new Float32Array(buffer, item[key]!.offset, item[key]!.count), 3));
-        geo.setIndex(new THREE.BufferAttribute(new Uint32Array(buffer, item.index.offset, item.index.count), 1)); this.geometries.add(geo);
+        const geo = item.role === "print" ? mouseSignatureGeometry(maskSurface!) : new THREE.BufferGeometry();
+        if (item.role !== "print") {
+          for (const key of ["position", "normal", "color"] as const) if (item[key]) geo.setAttribute(key, new THREE.BufferAttribute(new Float32Array(buffer, item[key]!.offset, item[key]!.count), 3));
+          geo.setIndex(new THREE.BufferAttribute(new Uint32Array(buffer, item.index.offset, item.index.count), 1));
+        }
+        this.geometries.add(geo);
         if (/^NTS_2C_(Eye|Lid_Upper|Lid_Lower)_[RL]$/.test(item.name)) softenEyeOpening(geo);
         if (item.name === "NTS_2C_Head_OriginalStylized") shortenChin(geo);
         if (item.role === "eye") eyeSurfaces.push(geo);
         if (/^NTS_2C_Lid_Upper_[RL]$/.test(item.name)) beautyLids.push(geo);
-        if (["mask", "loop", "print"].includes(item.role)) compactMask(geo, item.role === "loop");
+        if (["mask", "loop"].includes(item.role)) compactMask(geo, item.role === "loop");
+        if (item.role === "mask") maskSurface = geo;
         if (item.name === "NTS_2C_Head_OriginalStylized") fringeSupport.push(geo);
         const upperEye = /^NTS_2C_Lid_Upper_[RL]$/.test(item.name), materialKey = upperEye ? "upper-eye" : item.role;
         let material = shared.get(materialKey);
@@ -550,7 +587,9 @@ export class NtsPresentation {
           material.customProgramCacheKey = () => `private-NTS-study-${role}`;
           shared.set(materialKey, material); this.materials.add(material);
         }
-        const mesh = new THREE.Mesh(geo, material); mesh.name = item.name; if (item.role === "body") mesh.renderOrder = 1; this.presence.add(mesh);
+        const mesh = new THREE.Mesh(geo, material); mesh.name = item.role === "print" ? MOUSE_SIGNATURE_NAME : item.name;
+        if (item.role === "print") this.signature = mesh;
+        if (item.role === "body") mesh.renderOrder = 1; this.presence.add(mesh);
       }
       const hairGeometry = lowBraidGeometry(); this.geometries.add(hairGeometry);
       const braid = new THREE.Mesh(hairGeometry, shared.get("hair")!); braid.name = "NTS_Hair_LowSingleBraid"; this.presence.add(braid);
@@ -565,12 +604,13 @@ export class NtsPresentation {
       this.outfitMaterial = shared.get("body"); this.maskMaterial = shared.get("mask"); this.applyAppearance();
       this.presence.scale.setScalar(6); this.presence.position.set(-4.8, -4.6, 1);
       this.loaded = true; this.presence.visible = this.active && this.state?.phase === "settled" && !this.state.dom; this.changed();
+      if (this.state?.markInspection) this.moveForState(this.reducedMotion);
     } catch { if (!this.disposed && !this.abort.signal.aborted) { this.failed = true; this.failedPresence(); } }
     finally { this.loading = false; }
   }
   get inspection() {
     const point = new THREE.Vector3(-4.8, 4.6, 1).add(this.group.position).project(this.director.camera);
-    return { active: this.active, loaded: this.loaded, failed: this.failed, blend: this.blend, textureCount: this.textures.size, visibleMemories: [...this.panels].filter(([, panel]) => panel.visible).map(([id]) => id), visibleTraces: this.active ? MEMORIES.map(item => item.id) : [], presenceMeshCount: this.presence.children.length, presentationColors: { outfit: this.outfitMaterial?.color.getHexString(), mask: this.maskMaterial?.color.getHexString() }, savedCamera: Boolean(this.savedCamera), presenceNdc: { x: point.x, y: point.y }, composition: this.project(window.innerWidth, window.innerHeight) };
+    return { active: this.active, loaded: this.loaded, failed: this.failed, blend: this.blend, textureCount: this.textures.size, visibleMemories: [...this.panels].filter(([, panel]) => panel.visible).map(([id]) => id), visibleTraces: this.active ? MEMORIES.map(item => item.id) : [], presenceMeshCount: this.presence.children.length, presenceTriangles: this.presence.children.reduce((n, o) => n + ((o as THREE.Mesh).geometry.index?.count ?? 0) / 3, 0), signature: this.signature ? { name: this.signature.name, triangles: this.signature.geometry.index!.count / 3, textualMarkPresent: this.presence.children.some(o => o.name === "NTS_2J_Mask_Print") } : undefined, markReturnExact: this.markReturn?.exact, presentationColors: { outfit: this.outfitMaterial?.color.getHexString(), mask: this.maskMaterial?.color.getHexString() }, savedCamera: Boolean(this.savedCamera), presenceNdc: { x: point.x, y: point.y }, composition: this.project(window.innerWidth, window.innerHeight) };
   }
   project(width: number, height: number): NtsComposition {
     const box = (center: readonly number[], w: number, h: number): ProjectedBox => {
@@ -578,7 +618,10 @@ export class NtsPresentation {
       const xs = corners.map(p => (p.x + 1) * width / 2), ys = corners.map(p => (1 - p.y) * height / 2);
       return { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys), visible: this.active && corners.some(p => p.z > -1 && p.z < 1 && Math.abs(p.x) < 1.2 && Math.abs(p.y) < 1.2) };
     };
-    return { image: box([-.3, 4.7, 1.5], 3.9, 5.85), narrative: box([4.25, 4.7, 1.5], 4.5, 5.85), presence: box([-4.8, 3.9, 1], 2.1, 3.8), voice: box([-1.35, 4.7, 1], 4.2, 3.9), controls: box([-4.8, 1.9, 1], 4.1, .75), traces: Object.fromEntries(MEMORIES.map((item, index) => [item.id, box(TRACE_POSITIONS[index], 1.2, 1.8)])) as NtsComposition["traces"] };
+    const markBounds = this.signature?.geometry.boundingBox;
+    const markCenter = markBounds?.getCenter(new THREE.Vector3()).multiply(this.presence.scale).add(this.presence.position);
+    const markSize = markBounds?.getSize(new THREE.Vector3()).multiply(this.presence.scale);
+    return { mark: this.loaded && markCenter && markSize ? box(markCenter.toArray(), markSize.x, markSize.y) : undefined, image: box([-.3, 4.7, 1.5], 3.9, 5.85), narrative: box([4.25, 4.7, 1.5], 4.5, 5.85), presence: box([-4.8, 3.9, 1], 2.1, 3.8), voice: box([-1.35, 4.7, 1], 4.2, 3.9), controls: box([-4.8, 1.9, 1], 4.1, .75), traces: Object.fromEntries(MEMORIES.map((item, index) => [item.id, box(TRACE_POSITIONS[index], 1.2, 1.8)])) as NtsComposition["traces"] };
   }
   dispose(): void { this.disposed = true; this.abort.abort(); this.textures.forEach(t => t.dispose()); this.geometries.forEach(g => g.dispose()); this.materials.forEach(m => m.dispose()); this.group.removeFromParent(); this.savedVisibility.clear(); }
 }
