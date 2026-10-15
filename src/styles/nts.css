@@ -20,7 +20,6 @@
 .nts-intro { position:absolute; overflow:auto; padding:.95rem 1.05rem; background:linear-gradient(140deg,#153747f2,#234c59eb); border:1px solid #bedad744; border-left:2px solid #c0abc9; border-radius:.3rem .8rem .8rem .3rem; scrollbar-width:thin; }
 .nts-intro > p:first-child { font-size:.61rem; line-height:1.4; color:#c5d8dc; margin:0; }
 .nts-intro button { font-size:.7rem; }
-.nts-voice-tether { position:absolute; height:1px; background:#d6e6e0aa; transform-origin:0 50%; pointer-events:none; }
 .nts-presence-controls { position:absolute; text-align:center; pointer-events:none; }
 .nts-presence-controls > p:first-child { max-width:290px; font-size:.6rem; line-height:1.4; color:#e2e9e6; margin:0 auto .45rem; text-shadow:0 1px 5px #1b4051; }
 .nts-presence-controls div { display:flex; justify-content:center; gap:.35rem; }

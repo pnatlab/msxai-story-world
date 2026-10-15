@@ -48,6 +48,38 @@ async function expectPreviews(page: Page): Promise<void> {
   }
 }
 
+test("authored Presence introduction keeps its card accent without a leader line at responsive sizes", async ({ page }) => {
+  test.setTimeout(60000);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await selectNts(page); await enter(page);
+  for (const viewport of [
+    { width: 1366, height: 768 }, { width: 1920, height: 1080 }, { width: 1024, height: 768 },
+    { width: 390, height: 844 }, { width: 844, height: 390 },
+  ]) {
+    await page.setViewportSize(viewport); await settle(page);
+    for (const locale of ["en", "th"]) {
+      await page.locator(`[data-nts="${locale}"]`).click();
+      await page.locator('[data-nts="meet"]').click();
+      const card = page.locator(".nts-intro"); await expect(card).toBeVisible();
+      await expect(page.locator(".nts-voice-tether")).toHaveCount(0);
+      await expect(card.locator("h2")).toHaveText("NuTuenSai");
+      const visual = await card.evaluate(element => {
+        const style = getComputedStyle(element), rect = element.getBoundingClientRect();
+        return { accentWidth: style.borderLeftWidth, accentColor: style.borderLeftColor,
+          inViewport: rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight,
+          width: rect.width, height: rect.height };
+      });
+      expect(visual.accentWidth).toBe("2px"); expect(visual.accentColor).toBe("rgb(192, 171, 201)");
+      expect(visual.inViewport).toBe(true); expect(visual.width).toBeGreaterThan(200); expect(visual.height).toBeGreaterThan(120);
+      await page.screenshot({ path: `/private/tmp/nts-intro-${viewport.width}x${viewport.height}-${locale}.png` });
+      // At short-landscape heights the filmstrip can overlap the intro card's
+      // close button; Escape is the existing deterministic dismissal path.
+      await page.keyboard.press("Escape");
+      await expect(card).toBeHidden();
+    }
+  }
+});
+
 function watchImages(page: Page): { full: string[]; preview: string[] } {
   const requests = { full: [] as string[], preview: [] as string[] };
   page.on("request", request => {
@@ -142,8 +174,7 @@ test("six projected previews load before any full image and select with click or
   const voice = (await page.locator(".nts-intro").boundingBox())!;
   expect(composition.presence.visible).toBe(true);
   expect(rectangleDistance(presence, voice)).toBeLessThanOrEqual(96);
-  const tether = page.locator(".nts-voice-tether");
-  if (await tether.count()) await expect(tether).toBeVisible();
+  await expect(page.locator(".nts-voice-tether")).toHaveCount(0);
   const closeIntro = page.locator('.nts-intro [data-nts="close-intro"]');
   await expect(closeIntro).toBeInViewport({ ratio: .95 });
   const closeBox = (await closeIntro.boundingBox())!;

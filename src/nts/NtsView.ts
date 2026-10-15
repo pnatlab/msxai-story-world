@@ -39,7 +39,6 @@ export class NtsView {
     const pair = document.createElement("div"); pair.className = "nts-reading-pair"; pair.tabIndex = 0;
     pair.append(this.element.querySelector("figure")!, this.element.querySelector(".nts-caption")!);
     this.element.insertBefore(pair, this.element.querySelector(".nts-intro"));
-    const tether = document.createElement("div"); tether.className = "nts-voice-tether"; tether.setAttribute("aria-hidden", "true"); this.element.append(tether);
     // Discoverable traces are DOM-semantic images anchored to scene coordinates.
     // They use only small private derivatives; the selected WebGL image is separate.
     const path = this.element.querySelector("nav")!; path.className = "nts-memory-nav"; this.element.append(path);
@@ -235,7 +234,6 @@ export class NtsView {
     if (!this.state || this.element.hidden) return;
     const c = this.actions.project?.(); const width = this.element.clientWidth, height = this.element.clientHeight;
     const compact = compactNts(width, height), dom = this.fallback || this.state.dom;
-    const tether = this.element.querySelector<HTMLElement>(".nts-voice-tether")!; tether.hidden = !this.state.introduction || dom || !c;
     this.element.querySelector<HTMLButtonElement>('[data-nts="inspect-mark"]')!.disabled = !c?.mark || this.state.phase !== "settled";
     const place = (element: HTMLElement, box: ProjectedBox, readable = false) => {
       const w = readable ? Math.max(250, Math.min(355, box.width)) : box.width;
@@ -267,9 +265,6 @@ export class NtsView {
       const positioned = place(intro, voiceBox, !compact);
       intro.style.height = "auto"; intro.style.maxHeight = `${Math.max(180, height - positioned.y - 210)}px`;
       if (compact) { const w = Math.min(235, width * .56); intro.style.width = `${w}px`; intro.style.left = `${Math.min(width - w - 16, voiceBox.x)}px`; intro.style.height = "auto"; intro.style.maxHeight = "360px"; }
-      const startX = c.presence.x + c.presence.width * .75, startY = c.presence.y + c.presence.height * .25;
-      const endX = compact ? parseFloat(intro.style.left) : positioned.x, endY = positioned.y + 48;
-      tether.style.left = `${startX}px`; tether.style.top = `${startY}px`; tether.style.width = `${Math.hypot(endX - startX, endY - startY)}px`; tether.style.transform = `rotate(${Math.atan2(endY - startY, endX - startX)}rad)`;
     }
     this.placeAppearance(compact);
   }
