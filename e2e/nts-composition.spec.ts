@@ -12,7 +12,9 @@ const previews = ".nts-memory-nav [data-nts-memory]";
 type Box = { x: number; y: number; width: number; height: number; visible?: boolean };
 
 async function settle(page: Page): Promise<void> {
-  await expect.poll(async () => (await inspect(page)).scene?.renderLoopActive ?? false).toBe(false);
+  // Sample idle gaps between the existing field settling and sparse micro-events;
+  // retain the same five-second deadline and exact idle assertion.
+  await expect.poll(async () => (await inspect(page)).scene?.renderLoopActive ?? false, { intervals: [50], timeout: 5000 }).toBe(false);
 }
 
 async function selectNts(page: Page, url = "/"): Promise<void> {
@@ -191,6 +193,15 @@ test("compact width and portrait aspect share one DOM image and one reading scro
   await expectPreviews(page);
   expect(requests.full).toEqual([]);
   await page.locator(`${previews}[data-nts-memory="s5"]`).click();
+  const verifyReadingClear = async () => {
+    // Measure both owners in one layout snapshot. Capturing evidence can flush
+    // pending footer/resize updates, so never mix its old and new coordinates.
+    const layout = await page.evaluate(selector => ({
+      readingBottom: document.querySelector('.nts-reading-pair')!.getBoundingClientRect().bottom,
+      traceTop: Math.min(...[...document.querySelectorAll(selector)].map(button => button.getBoundingClientRect().top)),
+    }), previews);
+    expect(layout.readingBottom, "preview cards must leave the reading surface unobstructed").toBeLessThanOrEqual(layout.traceTop);
+  };
 
   for (const viewport of [{ width: 640, height: 480 }, { width: 390, height: 844 }, { width: 800, height: 1200 }]) {
     await page.setViewportSize(viewport);
@@ -211,10 +222,12 @@ test("compact width and portrait aspect share one DOM image and one reading scro
     expect(pairBox.x + pairBox.width).toBeLessThanOrEqual(viewport.width);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect([...new Set(requests.full)]).toEqual(["s5"]);
-    if (viewport.width === 640) await page.screenshot({ path: "/private/tmp/nts-slice-b-evidence/composition-compact-pair.png" });
     // Flex children can extend above a short ribbon even when the ribbon box clears the pair.
-    const traceTops = await page.locator(previews).evaluateAll(buttons => buttons.map(button => button.getBoundingClientRect().top));
-    expect(pairBox.y + pairBox.height, "preview cards must leave the reading surface unobstructed").toBeLessThanOrEqual(Math.min(...traceTops));
+    await verifyReadingClear();
+    if (viewport.width === 640) {
+      await page.screenshot({ path: "/private/tmp/nts-slice-b-evidence/composition-compact-pair.png" });
+      await verifyReadingClear();
+    }
     if (viewport.height > viewport.width) {
       const stageBox = (await page.locator(".story-stage").boundingBox())!;
       const presence = (await inspect(page)).scene!.nts.composition.presence;

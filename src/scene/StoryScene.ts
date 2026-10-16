@@ -234,6 +234,7 @@ export class StoryScene {
       const { NtsPresentation } = await import("../nts/NtsPresentation");
       if (this.disposed || generation !== this.ntsGeneration) return;
       this.nts = new NtsPresentation(this.scene, this.director, () => this.requestRender(), id => this.options.onNtsImageFailure?.(id), () => this.options.onNtsPresenceFailure?.());
+      this.nts.setSceneActive(this.active);
       this.nts.enter(this.nodeVisuals.get("nutuensai")!.group.position.clone(), this.lastPortrait, this.reducedMotion, true);
       if (this.ntsState) this.nts.setState(this.ntsState, this.reducedMotion);
       this.fieldMotionUntil = performance.now() + (this.reducedMotion ? 0 : 1650);
@@ -248,6 +249,8 @@ export class StoryScene {
   public presentNts(state: NtsState): void { this.ntsState = state; this.nts?.setState(state, this.reducedMotion); this.requestRender(); }
   public projectNts() { return this.nts?.project(this.container.clientWidth, this.container.clientHeight); }
   public setNtsMemoryLift(active: boolean): void { this.nts?.setMemoryLift(active); }
+  public get canSmileNts(): boolean { return this.nts?.canSmile ?? false; }
+  public smileNts(): boolean { return this.nts?.smile() ?? false; }
   public returnFromNts(): void {
     ++this.ntsGeneration;
     this.ecosystem.resize(this.lastPortrait);
@@ -290,6 +293,7 @@ export class StoryScene {
 
   public setActive(active: boolean): void {
     this.active = active;
+    this.nts?.setSceneActive(active);
     if (active) this.requestRender();
     else if (this.animationFrame) {
       cancelAnimationFrame(this.animationFrame);

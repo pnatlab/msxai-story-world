@@ -109,6 +109,7 @@ const ntsView = new NtsView({
   project: () => scene?.projectNts(), memoryLift: active => scene?.setNtsMemoryLift(active),
   outfit: color => nts.setOutfit(color), mask: color => nts.setMask(color),
   inspectMark: active => nts.inspectMark(active),
+  smile: () => { scene?.smileNts(); }, canSmile: () => scene?.canSmileNts ?? false,
 }, !webglAvailable);
 stage.append(ntsView.element);
 

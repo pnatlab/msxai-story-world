@@ -147,9 +147,15 @@ test("normal-motion close-up can be exited during camera travel without losing p
   for (const key of ["position", "target"] as const) for (let i = 0; i < 3; i++) expect(returned[key][i]).toBeCloseTo(prior[key][i], 9);
   await expect(mark(page)).toBeFocused();
   // If the prior orbit is still travelling, return to its requested semantic yaw, not a half pose.
-  await page.getByRole("slider").fill("90");
-  await mark(page).click();
-  expect(spatial(await snapshot(page)).nts.markReturnExact).toBe(false);
+  // Dispatch both existing UI handlers in one task: actionability waits between
+  // separate commands can otherwise let the requested orbit finish first.
+  const travelling = await page.getByRole("slider").evaluate(slider => {
+    (slider as HTMLInputElement).value = "90";
+    slider.dispatchEvent(new Event("input", { bubbles: true }));
+    document.querySelector<HTMLButtonElement>('[data-nts="inspect-mark"]')!.click();
+    return window.__MSXAI_STORY_WORLD__!.inspect();
+  });
+  expect(spatial(travelling).nts.markReturnExact).toBe(false);
   await page.keyboard.press("Escape"); await settled(page);
   const completed = spatial(await snapshot(page));
   expect(completed.ntsState).toMatchObject({ inspection: 90, markInspection: false });

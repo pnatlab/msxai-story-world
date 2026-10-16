@@ -24,6 +24,12 @@
 .nts-presence-controls > p:first-child { max-width:290px; font-size:.6rem; line-height:1.4; color:#e2e9e6; margin:0 auto .45rem; text-shadow:0 1px 5px #1b4051; }
 .nts-presence-controls div { display:flex; justify-content:center; gap:.35rem; }
 .nts-presence-controls button { font-size:.7rem; padding:.42rem .58rem; white-space:nowrap; }
+.nts-presence-secondary { margin-top:.35rem; }
+.nts-presence-secondary.is-inline { margin-top:0; }
+@media (max-height:620px) { .nts-view[data-layout="spatial"]:not(.is-inspection) .nts-presence-secondary.is-inline { order:-2; } }
+.nts-presence-controls [data-nts="smile"] { min-height:44px; }
+.nts-presence-controls [data-nts="smile"][aria-disabled="true"] { opacity:.55; cursor:not-allowed; }
+.nts-view.is-inspection .nts-presence-controls > div:first-of-type { max-width:100%; flex-wrap:wrap; gap:.25rem; }
 .nts-angles { margin-top:.45rem; }
 .nts-status { font-size:.65rem; max-width:300px; }
 .nts-memory-nav { position:absolute; inset:0; pointer-events:none; }
@@ -55,7 +61,7 @@
 .nts-dom-image { margin:0; }
 .nts-dom-image img { display:block; height:100%; width:auto; max-width:100%; object-fit:contain; border-radius:.2rem; margin:auto; }
 .nts-dom-image figcaption { font-size:.62rem; color:#46606a; margin:.3rem 0 .45rem; text-align:center; }
-.nts-view.is-inspection .nts-presence-controls { top:145px !important; left:50% !important; transform:translateX(-50%); width:min(420px,90%) !important; height:auto !important; }
+.nts-view.is-inspection .nts-presence-controls { top:145px !important; left:50% !important; transform:translateX(-50%); width:min(500px,90%) !important; height:auto !important; }
 .nts-view.is-inspection .nts-memory-nav, .nts-view.is-dom .nts-memory-nav { display:flex; align-items:end; justify-content:center; gap:1rem; top:auto; left:4%; right:4%; bottom:calc(var(--nts-footer-height,70px) + 40px); height:140px; }
 .nts-view.is-inspection .nts-memory-nav button, .nts-view.is-dom .nts-memory-nav button { position:static !important; width:70px !important; }
 .nts-view.is-dom { background:linear-gradient(150deg,#153c4b,#759094 65%,#bdc9be); }

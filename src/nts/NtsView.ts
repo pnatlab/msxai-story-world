@@ -1,5 +1,5 @@
 import type { Locale } from "../story/localeState";
-import { INTRO, MARK_COPY, MEMORIES, memory, memoryAsset, NTS_COPY, type MemoryId } from "./content";
+import { INTRO, MARK_COPY, SMILE_COPY, MEMORIES, memory, memoryAsset, NTS_COPY, type MemoryId } from "./content";
 import type { NtsState } from "./visitState";
 import { compactNts, type NtsComposition, type ProjectedBox } from "./composition";
 import { APPEARANCE_COPY, MASK_COLORS, OUTFIT_COLORS, type MaskColor, type OutfitColor } from "./appearance";
@@ -23,6 +23,7 @@ export class NtsView {
     memoryLift?: (active: boolean) => void;
     outfit: (color: OutfitColor) => void; mask: (color: MaskColor) => void;
     inspectMark: (active: boolean) => void;
+    smile: () => void; canSmile: () => boolean;
   }, private readonly fallback: boolean) {
     this.element.className = "nts-view"; this.element.hidden = true;
     this.element.setAttribute("aria-labelledby", "nts-title");
@@ -45,6 +46,10 @@ export class NtsView {
     this.footerObserver = new ResizeObserver(entries => this.element.style.setProperty("--nts-footer-height", `${Math.ceil(entries[0].contentRect.height)}px`));
     this.footerObserver.observe(this.element.querySelector("footer")!);
     const button = (name: string) => this.element.querySelector<HTMLButtonElement>(`[data-nts="${name}"]`)!;
+    const smileRow = document.createElement("div"); smileRow.className = "nts-presence-secondary";
+    smileRow.innerHTML = '<button type="button" data-nts="smile"></button>';
+    this.element.querySelector(".nts-angles")!.before(smileRow);
+    button("smile").addEventListener("click", () => { actions.smile(); this.refreshSmile(); });
     button("en").addEventListener("click", () => actions.locale("en"));
     button("th").addEventListener("click", () => actions.locale("th"));
     button("return").addEventListener("click", actions.return);
@@ -94,7 +99,22 @@ export class NtsView {
   private readonly onAppearanceOutside = (event: PointerEvent) => {
     if (this.appearance.open && event.target instanceof Node && !this.appearance.contains(event.target)) { this.appearance.open = false; this.refreshAnchors(); }
   };
-  private readonly onMotionPreference = () => { if (this.motionPreference.matches) this.cancelLift(); };
+  private readonly onMotionPreference = () => { if (this.motionPreference.matches) this.cancelLift(); this.refreshSmile(); };
+  private refreshSmile(): void {
+    const button = this.element.querySelector<HTMLButtonElement>('[data-nts="smile"]')!;
+    if (button.textContent !== SMILE_COPY[this.locale]) button.textContent = SMILE_COPY[this.locale];
+    const row = button.parentElement!, primary = this.element.querySelector<HTMLElement>('.nts-presence-controls > div:first-of-type')!;
+    // The inspection camera is fixed: keep its existing vertical control footprint.
+    const inline = Boolean(this.state?.inspection || window.innerHeight <= 620), focused = document.activeElement === button;
+    row.classList.toggle("is-inline", inline);
+    if (inline && row.parentElement !== primary) primary.append(row);
+    else if (!inline && row.parentElement === primary) primary.after(row);
+    if (focused && document.activeElement !== button) button.focus({ preventScroll: true });
+    row.hidden = this.fallback || Boolean(this.state?.dom || this.avatarFailed || this.state?.introduction || this.state?.markInspection);
+    button.disabled = this.motionPreference.matches || this.state?.phase !== "settled" || !this.actions.project?.()?.mark;
+    // Keep keyboard focus on the momentary action during its bounded cycle.
+    button.setAttribute("aria-disabled", String(button.disabled || !this.actions.canSmile()));
+  }
   private cancelLift(): void {
     if (!this.lift) return;
     cancelAnimationFrame(this.lift.frame); this.lift.image.remove(); this.lift = undefined;
@@ -232,6 +252,7 @@ export class NtsView {
   }
   refreshAnchors(): void {
     if (!this.state || this.element.hidden) return;
+    this.refreshSmile();
     const c = this.actions.project?.(); const width = this.element.clientWidth, height = this.element.clientHeight;
     const compact = compactNts(width, height), dom = this.fallback || this.state.dom;
     this.element.querySelector<HTMLButtonElement>('[data-nts="inspect-mark"]')!.disabled = !c?.mark || this.state.phase !== "settled";
