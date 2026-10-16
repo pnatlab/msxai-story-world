@@ -1,5 +1,5 @@
 import { MEMORIES, type MemoryId } from "./content";
-import { DEFAULT_APPEARANCE, MASK_COLORS, OUTFIT_COLORS, type MaskColor, type OutfitColor } from "./appearance";
+import { DEFAULT_APPEARANCE, MASK_COLORS, OUTFIT_COLORS, type MaskColor, type OutfitColor, type PresenceMode } from "./appearance";
 export interface NtsState {
   readonly phase: "closed" | "approaching" | "settled" | "returning";
   readonly memoryId: MemoryId;
@@ -10,17 +10,18 @@ export interface NtsState {
   readonly dom: boolean;
   readonly outfit: OutfitColor;
   readonly mask: MaskColor;
+  readonly presentation: PresenceMode;
 }
 /** Only presentation state. No story/ecosystem/model/context references. */
 export class NtsVisitController {
-  private state: NtsState = { phase: "closed", memoryId: "s1", reading: false, inspection: false, markInspection: false, introduction: false, dom: false, ...DEFAULT_APPEARANCE };
+  private state: NtsState = { phase: "closed", memoryId: "s1", reading: false, inspection: false, markInspection: false, introduction: false, dom: false, presentation: "normal", ...DEFAULT_APPEARANCE };
   private readonly listeners = new Set<(state: NtsState) => void>();
   getState(): NtsState { return this.state; }
   get active(): boolean { return this.state.phase !== "closed"; }
   subscribe(listener: (state: NtsState) => void): () => void { this.listeners.add(listener); listener(this.state); return () => this.listeners.delete(listener); }
   enter(reduced: boolean): boolean {
     if (this.active) return false;
-    this.publish({ ...this.state, ...DEFAULT_APPEARANCE, phase: reduced ? "settled" : "approaching", memoryId: "s1", reading: false, inspection: false, markInspection: false, introduction: false }); return true;
+    this.publish({ ...this.state, ...DEFAULT_APPEARANCE, presentation: "normal", phase: reduced ? "settled" : "approaching", memoryId: "s1", reading: false, inspection: false, markInspection: false, introduction: false }); return true;
   }
   settle(): void { if (this.state.phase === "approaching") this.publish({ ...this.state, phase: "settled" }); }
   select(id: MemoryId): void {
@@ -43,6 +44,9 @@ export class NtsVisitController {
   }
   setMask(mask: MaskColor): void {
     if (this.state.phase === "settled" && Object.hasOwn(MASK_COLORS, mask) && mask !== this.state.mask) this.publish({ ...this.state, mask });
+  }
+  setPresentation(presentation: PresenceMode): void {
+    if (this.state.phase === "settled" && ["normal", "hologram"].includes(presentation) && presentation !== this.state.presentation) this.publish({ ...this.state, presentation });
   }
   requestReturn(): void {
     if (this.active && this.state.phase !== "returning") this.publish({ ...this.state, phase: "returning", inspection: false, markInspection: false, introduction: false, reading: false });

@@ -169,9 +169,9 @@ export class AuthoredHeadTilt {
   private readonly pivot = new THREE.Vector3(0, 1.46, 0);
   private readonly axis = new THREE.Vector3(0, 0, 1);
   private readonly offset = new THREE.Quaternion();
-  private readonly bases: { mesh: Mesh; position: THREE.Vector3; quaternion: THREE.Quaternion; scale: THREE.Vector3 }[];
+  private readonly bases: { mesh: THREE.Object3D; position: THREE.Vector3; quaternion: THREE.Quaternion; scale: THREE.Vector3 }[];
   degrees = 0;
-  constructor(meshes: readonly Mesh[]) {
+  constructor(meshes: readonly THREE.Object3D[]) {
     this.bases = meshes.map(mesh => ({ mesh, position: mesh.position.clone(), quaternion: mesh.quaternion.clone(), scale: mesh.scale.clone() }));
   }
   begin(): void {
@@ -195,7 +195,7 @@ export class AuthoredHeadTilt {
   get neutralExact(): boolean { return this.degrees === 0 && this.bases.every(b => b.mesh.position.equals(b.position) && b.mesh.quaternion.equals(b.quaternion) && b.mesh.scale.equals(b.scale)); }
 }
 
-type Context = { eligible: boolean; idle: boolean };
+type Context = { eligible: boolean; idle: boolean; facial?: boolean };
 /** One sparse timer wakes the existing renderer; frames run only for a bounded event. */
 export class PresenceExpressions {
   private readonly geometry: MicroExpressionGeometry;
@@ -246,7 +246,7 @@ export class PresenceExpressions {
       return;
     }
     const value = expressionEnvelope(kind, elapsed - lead);
-    this.geometry.apply(kind === "blink" ? value : 0, kind === "smile" ? value : 0);
+    this.geometry.apply(kind === "blink" && this.context.facial !== false ? value : 0, kind === "smile" && this.context.facial !== false ? value : 0);
     if (kind === "smile") this.headTilt?.apply(headTiltEnvelope(elapsed));
   }
   get animating(): boolean { return Boolean(this.animation); }

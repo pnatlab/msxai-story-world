@@ -33,8 +33,8 @@ test("Presence Colors and its open panel clear the memory field across responsiv
         for (const expanded of [false, true]) {
           if (expanded) await open(page);
           const targets = page.locator(expanded
-            ? '.nts-appearance summary, .nts-appearance-panel, [data-nts="meet"], [data-nts="inspect"], [data-nts="smile"]'
-            : '.nts-appearance summary, [data-nts="meet"], [data-nts="inspect"], [data-nts="smile"]');
+            ? '.nts-appearance summary, .nts-appearance-panel, [data-nts="meet"], [data-nts="inspect"], [data-nts="smile"], [data-nts="hologram"]'
+            : '.nts-appearance summary, [data-nts="meet"], [data-nts="inspect"], [data-nts="smile"], [data-nts="hologram"]');
           await expect.poll(async () => targets.evaluateAll(elements => {
             const traces = [...document.querySelectorAll('[data-nts-memory]')].map(trace => trace.getBoundingClientRect());
             return Math.min(...elements.flatMap(element => {

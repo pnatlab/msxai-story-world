@@ -2,7 +2,7 @@ import type { Locale } from "../story/localeState";
 import { INTRO, MARK_COPY, SMILE_COPY, MEMORIES, memory, memoryAsset, NTS_COPY, type MemoryId } from "./content";
 import type { NtsState } from "./visitState";
 import { compactNts, type NtsComposition, type ProjectedBox } from "./composition";
-import { APPEARANCE_COPY, MASK_COLORS, OUTFIT_COLORS, type MaskColor, type OutfitColor } from "./appearance";
+import { APPEARANCE_COPY, HOLOGRAM_COPY, MASK_COLORS, OUTFIT_COLORS, type MaskColor, type OutfitColor, type PresenceMode } from "./appearance";
 
 export class NtsView {
   readonly element = document.createElement("section");
@@ -24,6 +24,7 @@ export class NtsView {
     outfit: (color: OutfitColor) => void; mask: (color: MaskColor) => void;
     inspectMark: (active: boolean) => void;
     smile: () => void; canSmile: () => boolean;
+    presentation: (mode: PresenceMode) => void;
   }, private readonly fallback: boolean) {
     this.element.className = "nts-view"; this.element.hidden = true;
     this.element.setAttribute("aria-labelledby", "nts-title");
@@ -47,9 +48,10 @@ export class NtsView {
     this.footerObserver.observe(this.element.querySelector("footer")!);
     const button = (name: string) => this.element.querySelector<HTMLButtonElement>(`[data-nts="${name}"]`)!;
     const smileRow = document.createElement("div"); smileRow.className = "nts-presence-secondary";
-    smileRow.innerHTML = '<button type="button" data-nts="smile"></button>';
+    smileRow.innerHTML = '<button type="button" data-nts="smile"></button><button type="button" data-nts="hologram" aria-pressed="false"></button>';
     this.element.querySelector(".nts-angles")!.before(smileRow);
     button("smile").addEventListener("click", () => { actions.smile(); this.refreshSmile(); });
+    button("hologram").addEventListener("click", () => actions.presentation(this.state?.presentation === "hologram" ? "normal" : "hologram"));
     button("en").addEventListener("click", () => actions.locale("en"));
     button("th").addEventListener("click", () => actions.locale("th"));
     button("return").addEventListener("click", actions.return);
@@ -105,15 +107,19 @@ export class NtsView {
     if (button.textContent !== SMILE_COPY[this.locale]) button.textContent = SMILE_COPY[this.locale];
     const row = button.parentElement!, primary = this.element.querySelector<HTMLElement>('.nts-presence-controls > div:first-of-type')!;
     // The inspection camera is fixed: keep its existing vertical control footprint.
-    const inline = Boolean(this.state?.inspection || window.innerHeight <= 620), focused = document.activeElement === button;
+    const inline = Boolean(this.state?.inspection || window.innerHeight <= 620), focused = row.contains(document.activeElement) ? document.activeElement as HTMLElement : undefined;
     row.classList.toggle("is-inline", inline);
     if (inline && row.parentElement !== primary) primary.append(row);
     else if (!inline && row.parentElement === primary) primary.after(row);
-    if (focused && document.activeElement !== button) button.focus({ preventScroll: true });
+    if (focused && document.activeElement !== focused) focused.focus({ preventScroll: true });
     row.hidden = this.fallback || Boolean(this.state?.dom || this.avatarFailed || this.state?.introduction || this.state?.markInspection);
     button.disabled = this.motionPreference.matches || this.state?.phase !== "settled" || !this.actions.project?.()?.mark;
     // Keep keyboard focus on the momentary action during its bounded cycle.
     button.setAttribute("aria-disabled", String(button.disabled || !this.actions.canSmile()));
+    const hologram = this.element.querySelector<HTMLButtonElement>('[data-nts="hologram"]')!;
+    hologram.textContent = HOLOGRAM_COPY[this.locale];
+    hologram.setAttribute("aria-pressed", String(this.state?.presentation === "hologram"));
+    hologram.disabled = this.state?.phase !== "settled" || !this.actions.project?.()?.mark;
   }
   private cancelLift(): void {
     if (!this.lift) return;

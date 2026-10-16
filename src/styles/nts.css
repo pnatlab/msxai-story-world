@@ -24,10 +24,11 @@
 .nts-presence-controls > p:first-child { max-width:290px; font-size:.6rem; line-height:1.4; color:#e2e9e6; margin:0 auto .45rem; text-shadow:0 1px 5px #1b4051; }
 .nts-presence-controls div { display:flex; justify-content:center; gap:.35rem; }
 .nts-presence-controls button { font-size:.7rem; padding:.42rem .58rem; white-space:nowrap; }
-.nts-presence-secondary { margin-top:.35rem; }
+.nts-presence-secondary { margin-top:.35rem; flex-wrap:wrap; }
 .nts-presence-secondary.is-inline { margin-top:0; }
 @media (max-height:620px) { .nts-view[data-layout="spatial"]:not(.is-inspection) .nts-presence-secondary.is-inline { order:-2; } }
 .nts-presence-controls [data-nts="smile"] { min-height:44px; }
+.nts-presence-controls [data-nts="hologram"] { min-height:44px; }
 .nts-presence-controls [data-nts="smile"][aria-disabled="true"] { opacity:.55; cursor:not-allowed; }
 .nts-view.is-inspection .nts-presence-controls > div:first-of-type { max-width:100%; flex-wrap:wrap; gap:.25rem; }
 .nts-angles { margin-top:.45rem; }

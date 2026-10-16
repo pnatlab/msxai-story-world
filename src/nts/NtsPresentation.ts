@@ -7,6 +7,7 @@ import { compactNts, TRACE_POSITIONS, type NtsComposition, type ProjectedBox } f
 import { DEFAULT_APPEARANCE, MASK_COLORS, OUTFIT_COLORS } from "./appearance";
 import { MOUSE_SIGNATURE_NAME, mouseSignatureGeometry } from "./mouseSignature";
 import { AuthoredHeadTilt, PresenceExpressions } from "./microExpressions";
+import { EnergyGraphPresence } from "./hologram";
 
 interface SnapshotObject { name: string; role: string; position: { offset: number; count: number }; normal: { offset: number; count: number }; index: { offset: number; count: number }; color?: { offset: number; count: number }; }
 type SavedControls = { minDistance: number; maxDistance: number; minPolarAngle: number; maxPolarAngle: number; minAzimuthAngle: number; maxAzimuthAngle: number; enablePan: boolean; enableZoom: boolean; enableRotate: boolean; };
@@ -297,6 +298,7 @@ export class NtsPresentation {
   private readonly materials = new Set<THREE.Material>();
   private outfitMaterial?: THREE.MeshStandardMaterial;
   private maskMaterial?: THREE.MeshStandardMaterial;
+  private hologram?: EnergyGraphPresence;
   private signature?: THREE.Mesh;
   private markReturn?: { camera: CameraState; width: number; height: number; exact: boolean };
   private reducedMotion = false;
@@ -323,7 +325,7 @@ export class NtsPresentation {
   private orbit?: { start: number; from: number; to: number; duration: number };
   private expression?: PresenceExpressions;
   private sceneActive = true;
-  get needsMotion(): boolean { return this.active && (performance.now() < this.motionUntil || Boolean(this.orbit) || Boolean(this.expression?.animating)); }
+  get needsMotion(): boolean { return this.active && (performance.now() < this.motionUntil || Boolean(this.orbit) || Boolean(this.expression?.animating) || Boolean(this.hologram?.pulse.animating)); }
   get transitioning(): boolean { return this.active && this.duration > 0 && performance.now() < this.started + this.duration; }
   constructor(private readonly scene: THREE.Scene, private readonly director: CameraDirector, private readonly changed: () => void,
     private readonly failedImage: (id: MemoryId) => void, private readonly failedPresence: () => void) {
@@ -374,10 +376,21 @@ export class NtsPresentation {
   get active(): boolean { return this.group.visible; }
   setSceneActive(active: boolean): void { this.sceneActive = active; this.refreshExpressionContext(); }
   get canSmile(): boolean { return this.expression?.canSmile ?? false; }
-  smile(): boolean { return this.expression?.smile() ?? false; }
+  smile(): boolean {
+    const accepted = this.expression?.smile() ?? false;
+    if (accepted) this.hologram?.pulse.setEligible(false);
+    return accepted;
+  }
   private refreshExpressionContext(): void {
     const visible = this.active && this.loaded && this.state?.phase === "settled" && !this.state.dom && !this.state.markInspection && !this.state.introduction;
-    this.expression?.setContext({ eligible: Boolean(visible && this.sceneActive && !this.reducedMotion), idle: !this.state?.inspection });
+    this.expression?.setContext({ eligible: Boolean(visible && this.sceneActive && !this.reducedMotion),
+      idle: !this.state?.inspection && this.state?.presentation !== "hologram", facial: this.state?.presentation !== "hologram" });
+    this.refreshPulseContext();
+  }
+  private refreshPulseContext(): void {
+    this.hologram?.pulse.setEligible(Boolean(this.active && this.loaded && this.sceneActive && !this.reducedMotion &&
+      this.state?.phase === "settled" && this.state.presentation === "hologram" && this.state.inspection === false &&
+      !this.state.dom && !this.state.markInspection && !this.state.introduction && !this.state.reading && !this.expression?.animating));
   }
   setMemoryLift(active: boolean): void {
     if (this.memoryLifting === active) return;
@@ -405,8 +418,12 @@ export class NtsPresentation {
   setState(state: NtsState, reduced: boolean): void {
     const previous = this.state; this.state = state; this.reducedMotion = reduced;
     if (previous && (state.inspection !== previous.inspection || state.markInspection !== previous.markInspection ||
-      state.introduction !== previous.introduction || state.dom !== previous.dom || state.reading !== previous.reading || state.memoryId !== previous.memoryId)) this.expression?.cancel();
+      state.introduction !== previous.introduction || state.dom !== previous.dom || state.reading !== previous.reading || state.memoryId !== previous.memoryId || state.presentation !== previous.presentation)) {
+      this.expression?.cancel(); this.hologram?.pulse.cancel();
+    }
     this.applyAppearance();
+    this.hologram?.setReading(state.reading && !state.inspection);
+    this.hologram?.setMode(state.presentation);
     if (!this.active) return;
     if (reduced && state.phase !== "returning") this.setBlend(1, 0);
     if (reduced || state.dom || state.markInspection || state.phase !== "settled") this.motionUntil = 0;
@@ -417,8 +434,7 @@ export class NtsPresentation {
     this.loadMemories();
     if (state.phase === "settled" && !state.dom && !this.loading && !this.loaded && !this.failed) void this.loadPresence();
     this.presence.visible = this.loaded && state.phase === "settled" && !state.dom;
-    // Opaque identity zone stays opaque; only supporting presence is quieter while reading.
-    this.presence.traverse(object => { const mesh = object as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>; if (mesh.material) mesh.material.emissiveIntensity = state.reading && !state.inspection ? .015 : .055; });
+    this.hologram?.setAvailable(this.presence.visible);
     const modeChanged = state.inspection !== previous?.inspection || state.introduction !== previous?.introduction || state.reading !== previous?.reading;
     if (state.markInspection && !previous?.markInspection) {
       const camera = this.director.camera;
@@ -443,6 +459,7 @@ export class NtsPresentation {
   beginReturn(reduced: boolean, fallbackCamera: CameraState): void {
     this.abort.abort();
     this.expression?.setContext({ eligible: false, idle: false });
+    this.hologram?.pulse.setEligible(false);
     this.orbit = undefined; this.markReturn = undefined; this.motionUntil = 0;
     if (!this.savedCamera) return;
     this.setBlend(0, reduced ? 0 : 650);
@@ -463,13 +480,18 @@ export class NtsPresentation {
   }
   resize(portrait: boolean, reduced: boolean): void {
     this.expression?.cancel();
+    this.hologram?.pulse.cancel();
+    this.hologram?.resize(window.innerHeight, window.devicePixelRatio);
     this.portrait = portrait; this.compact = compactNts(window.innerWidth, window.innerHeight);
     if (this.markReturn && (this.markReturn.width !== window.innerWidth || this.markReturn.height !== window.innerHeight)) this.markReturn.exact = false;
     if (this.active) { this.loadMemories(); this.moveForState(reduced, true); }
     this.refreshExpressionContext();
   }
   frame(now: number): number {
+    const expressionWasAnimating = Boolean(this.expression?.animating);
     this.expression?.frame(now);
+    if (expressionWasAnimating && !this.expression?.animating) this.refreshPulseContext();
+    this.hologram?.pulse.frame(now);
     const motion = now < this.motionUntil ? Math.sin(Math.PI * (now - this.motionStarted) / 3200) : 0;
     this.livingLines.forEach((line, i) => { line.material.opacity = .13 + motion * .075; line.position.y = motion * .09 * (i % 2 ? -1 : 1); });
     if (this.orbit) {
@@ -486,7 +508,8 @@ export class NtsPresentation {
   }
   pick(raycaster: THREE.Raycaster): "presence" | MemoryId | undefined {
     if (!this.active || this.state?.phase !== "settled" || this.state.dom || this.state.markInspection) return;
-    if (this.presence.visible && raycaster.intersectObject(this.presence, true).length) return "presence";
+    const representation = this.state.presentation === "hologram" ? this.hologram?.group : this.presence;
+    if (representation?.visible && raycaster.intersectObject(representation, true).length) return "presence";
     return raycaster.intersectObjects([...this.panels.values()].filter(p => p.visible), false)[0]?.object.userData.memoryId as MemoryId | undefined;
   }
   private moveForState(reduced: boolean, immediate = false): void {
@@ -568,6 +591,7 @@ export class NtsPresentation {
       const buffer = await response.arrayBuffer(); if (this.disposed || this.abort.signal.aborted) return;
       const palette: Record<string, string> = { skin: "#ecd6c6", hair: "#15191e", brow: "#332a29", lid: "#94776c", mask: "#eaf2f4", print: "#6d7b86", loop: "#cddce0", body: "#8ea7ad", eye: "#ffffff" };
       const shared = new Map<string, THREE.MeshStandardMaterial>();
+      const materialRoles = new Map<THREE.Material, string>();
       const fringeSupport: THREE.BufferGeometry[] = [];
       const eyeSurfaces: THREE.BufferGeometry[] = [];
       const beautyLids: THREE.BufferGeometry[] = [];
@@ -601,7 +625,7 @@ export class NtsPresentation {
             if (["body", "skin", "hair"].includes(role)) shader.fragmentShader = shader.fragmentShader.replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance += vec3(.08,.18,.22) * pow(1.0-abs(dot(normalize(normal),normalize(vViewPosition))),2.8);");
           };
           material.customProgramCacheKey = () => `private-NTS-study-${role}`;
-          shared.set(materialKey, material); this.materials.add(material);
+          shared.set(materialKey, material); this.materials.add(material); materialRoles.set(material, materialKey);
         }
         const mesh = new THREE.Mesh(geo, material); mesh.name = item.role === "print" ? MOUSE_SIGNATURE_NAME : item.name;
         if (item.role === "print") this.signature = mesh;
@@ -613,16 +637,23 @@ export class NtsPresentation {
       const fringe = new THREE.Mesh(fringeGeometry, shared.get("hair")!); fringe.name = "NTS_Hair_SoftSideFringe"; this.presence.add(fringe);
       const catchlightGeometry = eyeCatchlightGeometry(eyeSurfaces); this.geometries.add(catchlightGeometry);
       const catchlightMaterial = new THREE.MeshBasicMaterial({ color: "#f5f7f1" }); this.materials.add(catchlightMaterial);
+      materialRoles.set(catchlightMaterial, "catchlight");
       const catchlights = new THREE.Mesh(catchlightGeometry, catchlightMaterial); catchlights.name = "NTS_Eyes_StaticCatchlights"; this.presence.add(catchlights);
       for (const mesh of createBeautyStyling(fringeSupport[0], beautyLids)) {
-        this.geometries.add(mesh.geometry); this.materials.add(mesh.material); this.presence.add(mesh);
+        this.geometries.add(mesh.geometry); this.materials.add(mesh.material); materialRoles.set(mesh.material, "beauty"); this.presence.add(mesh);
       }
       this.outfitMaterial = shared.get("body"); this.maskMaterial = shared.get("mask"); this.applyAppearance();
       this.presence.scale.setScalar(6); this.presence.position.set(-4.8, -4.6, 1);
       const meshes = this.presence.children as THREE.Mesh<THREE.BufferGeometry>[];
+      this.hologram = new EnergyGraphPresence(meshes as THREE.Mesh<THREE.BufferGeometry, THREE.Material>[], materialRoles, this.changed);
+      this.hologram.group.position.copy(this.presence.position); this.hologram.group.scale.copy(this.presence.scale);
+      this.group.add(this.hologram.group);
+      this.hologram.setReading(Boolean(this.state?.reading && !this.state.inspection));
+      this.hologram.setMode(this.state?.presentation ?? "normal");
       const headMeshes = meshes.filter(mesh => !["NTS_2J_Neck_Continuous", "NTS_2J_Outfit_Continuous_Knit"].includes(mesh.name));
-      this.expression = new PresenceExpressions(meshes, this.changed, new AuthoredHeadTilt(headMeshes));
+      this.expression = new PresenceExpressions(meshes, this.changed, new AuthoredHeadTilt([...headMeshes, this.hologram.head]));
       this.loaded = true; this.presence.visible = this.active && this.state?.phase === "settled" && !this.state.dom; this.changed();
+      this.hologram.setAvailable(this.presence.visible);
       this.refreshExpressionContext();
       if (this.state?.markInspection) this.moveForState(this.reducedMotion);
     } catch { if (!this.disposed && !this.abort.signal.aborted) { this.failed = true; this.failedPresence(); } }
@@ -630,7 +661,7 @@ export class NtsPresentation {
   }
   get inspection() {
     const point = new THREE.Vector3(-4.8, 4.6, 1).add(this.group.position).project(this.director.camera);
-    return { active: this.active, loaded: this.loaded, failed: this.failed, blend: this.blend, textureCount: this.textures.size, visibleMemories: [...this.panels].filter(([, panel]) => panel.visible).map(([id]) => id), visibleTraces: this.active ? MEMORIES.map(item => item.id) : [], presenceMeshCount: this.presence.children.length, presenceTriangles: this.presence.children.reduce((n, o) => n + ((o as THREE.Mesh).geometry.index?.count ?? 0) / 3, 0), expression: this.expression?.inspection, signature: this.signature ? { name: this.signature.name, triangles: this.signature.geometry.index!.count / 3, textualMarkPresent: this.presence.children.some(o => o.name === "NTS_2J_Mask_Print") } : undefined, markReturnExact: this.markReturn?.exact, presentationColors: { outfit: this.outfitMaterial?.color.getHexString(), mask: this.maskMaterial?.color.getHexString() }, savedCamera: Boolean(this.savedCamera), presenceNdc: { x: point.x, y: point.y }, composition: this.project(window.innerWidth, window.innerHeight) };
+    return { active: this.active, loaded: this.loaded, failed: this.failed, blend: this.blend, textureCount: this.textures.size, visibleMemories: [...this.panels].filter(([, panel]) => panel.visible).map(([id]) => id), visibleTraces: this.active ? MEMORIES.map(item => item.id) : [], presenceMeshCount: this.presence.children.length, presenceTriangles: this.presence.children.reduce((n, o) => n + ((o as THREE.Mesh).geometry.index?.count ?? 0) / 3, 0), energyGraph: this.hologram?.inspection, expression: this.expression?.inspection, signature: this.signature ? { name: this.signature.name, triangles: this.signature.geometry.index!.count / 3, textualMarkPresent: this.presence.children.some(o => o.name === "NTS_2J_Mask_Print") } : undefined, markReturnExact: this.markReturn?.exact, presentationColors: { outfit: this.outfitMaterial?.color.getHexString(), mask: this.maskMaterial?.color.getHexString() }, savedCamera: Boolean(this.savedCamera), presenceNdc: { x: point.x, y: point.y }, composition: this.project(window.innerWidth, window.innerHeight) };
   }
   project(width: number, height: number): NtsComposition {
     const box = (center: readonly number[], w: number, h: number): ProjectedBox => {
@@ -643,5 +674,5 @@ export class NtsPresentation {
     const markSize = markBounds?.getSize(new THREE.Vector3()).multiply(this.presence.scale);
     return { mark: this.loaded && markCenter && markSize ? box(markCenter.toArray(), markSize.x, markSize.y) : undefined, image: box([-.3, 4.7, 1.5], 3.9, 5.85), narrative: box([4.25, 4.7, 1.5], 4.5, 5.85), presence: box([-4.8, 3.9, 1], 2.1, 3.8), voice: box([-1.35, 4.7, 1], 4.2, 3.9), controls: box([-4.8, 1.9, 1], 4.1, .75), traces: Object.fromEntries(MEMORIES.map((item, index) => [item.id, box(TRACE_POSITIONS[index], 1.2, 1.8)])) as NtsComposition["traces"] };
   }
-  dispose(): void { this.disposed = true; this.expression?.dispose(); this.expression = undefined; this.abort.abort(); this.textures.forEach(t => t.dispose()); this.geometries.forEach(g => g.dispose()); this.materials.forEach(m => m.dispose()); this.group.removeFromParent(); this.savedVisibility.clear(); }
+  dispose(): void { this.disposed = true; this.expression?.dispose(); this.expression = undefined; this.hologram?.dispose(); this.hologram = undefined; this.abort.abort(); this.textures.forEach(t => t.dispose()); this.geometries.forEach(g => g.dispose()); this.materials.forEach(m => m.dispose()); this.group.removeFromParent(); this.savedVisibility.clear(); }
 }
