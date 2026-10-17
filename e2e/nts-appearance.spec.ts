@@ -12,6 +12,10 @@ const open = async (page: Page) => {
   const details = page.locator(".nts-appearance");
   if (await details.getAttribute("open") === null) await details.locator("summary").click();
   await expect(details).toHaveAttribute("open", "");
+  // Native <details> dispatches `toggle` asynchronously; wait for its measured
+  // placement before asserting bounds or capturing a review frame.
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await expect.poll(() => details.locator(".nts-appearance-panel").evaluate(element => (element as HTMLElement).style.width)).not.toBe("");
 };
 
 test("Presence Colors and its open panel clear the memory field across responsive layouts and locales", async ({ page }) => {
@@ -47,6 +51,52 @@ test("Presence Colors and its open panel clear the memory field across responsiv
         await expect(page.locator('.nts-appearance summary')).toBeFocused();
       }
     }
+  }
+});
+
+test("open mobile Appearance panel does not obscure the rendered Presence preview", async ({ page }, testInfo) => {
+  test.setTimeout(60000);
+  const viewports = [
+    { width: 390, height: 844 },
+    { width: 375, height: 667 },
+    { width: 430, height: 932 },
+    { width: 844, height: 390 },
+    { width: 1440, height: 900 },
+  ];
+  await page.locator('[data-nutuensai-entry="home"]').click(); await settled(page);
+
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport); await settled(page);
+    await open(page);
+    const bounds = await page.evaluate(() => {
+      const panel = document.querySelector<HTMLElement>(".nts-appearance-panel")!.getBoundingClientRect();
+      const presence = window.__MSXAI_STORY_WORLD__!.inspect();
+      const box = "nts" in presence ? presence.nts?.composition.presence : undefined;
+      const silhouette = box ? { left: box.x - 24, right: box.x + box.width + 24, top: box.y, bottom: box.y + box.height } : undefined;
+      const overlaps = silhouette ? panel.left < silhouette.right && panel.right > silhouette.left && panel.top < silhouette.bottom && panel.bottom > silhouette.top : true;
+      const memories = [...document.querySelectorAll<HTMLElement>("[data-nts-memory]")].map(element => {
+        const rect = element.getBoundingClientRect();
+        return panel.left < rect.right && panel.right > rect.left && panel.top < rect.bottom && panel.bottom > rect.top;
+      });
+      const buttons = [...document.querySelectorAll<HTMLElement>('[data-nts="meet"], [data-nts="inspect"], [data-nts="smile"], [data-nts="hologram"], [data-nts="return"]')].map(element => {
+        const rect = element.getBoundingClientRect();
+        return { name: element.dataset.nts, rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }, overlaps: panel.left < rect.right && panel.right > rect.left && panel.top < rect.bottom && panel.bottom > rect.top };
+      });
+      return { viewport: { innerWidth, innerHeight }, panel: { x: panel.x, y: panel.y, width: panel.width, height: panel.height }, presence: box, conservativeSilhouette: silhouette, overlaps, overlapsMemory: memories.some(Boolean), overlappingControls: buttons.filter(button => button.overlaps), horizontalOverflow: document.documentElement.scrollWidth > innerWidth };
+    });
+    await page.screenshot({ path: testInfo.outputPath(`appearance-open-${viewport.width}x${viewport.height}.png`), fullPage: false });
+    expect(bounds.overlaps, `${viewport.width}×${viewport.height}: Appearance must not cover the projected Presence preview (${JSON.stringify(bounds)})`).toBe(false);
+    expect(bounds.overlapsMemory, `${viewport.width}×${viewport.height}: Appearance must not cover Gallery memories`).toBe(false);
+    expect(bounds.overlappingControls, `${viewport.width}×${viewport.height}: Appearance must not cover navigation or Return controls (${JSON.stringify(bounds.overlappingControls)})`).toEqual([]);
+    expect(bounds.horizontalOverflow, `${viewport.width}×${viewport.height}: no horizontal page overflow`).toBe(false);
+    await page.locator('[data-nts-outfit="white"]').click();
+    await page.locator('[data-nts-mask="white"]').click();
+    await expect(page.locator('[data-nts-outfit="white"]')).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator('[data-nts-mask="white"]')).toHaveAttribute("aria-pressed", "true");
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".nts-appearance")).not.toHaveAttribute("open", "");
+    await open(page);
+    await page.keyboard.press("Escape");
   }
 });
 test.beforeEach(async ({ page }) => {

@@ -134,6 +134,12 @@
 .nts-view[data-layout="compact"] .nts-appearance { position:relative; right:auto; top:auto; }
 .nts-view[data-layout="compact"] .nts-appearance summary { font-size:.6rem; }
 .nts-view[data-layout="compact"] .nts-appearance-panel button { min-height:44px; min-width:56px; font-size:.68rem; }
+.nts-view[data-layout="compact"] .nts-appearance-panel { padding:.35rem; }
+.nts-view[data-layout="compact"] .nts-appearance-panel > p { display:none; }
+.nts-view[data-layout="compact"] .nts-appearance-panel fieldset { margin-bottom:.12rem; }
+.nts-view[data-layout="compact"] .nts-appearance-panel legend { font-size:.62rem; margin-bottom:0; }
+.nts-view[data-layout="compact"] .nts-presence-controls .nts-appearance-panel button { flex:1 1 calc(50% - 2px); min-width:0; padding:.2rem .18rem; gap:2px; font-size:.58rem; }
+.nts-view[data-layout="compact"] .nts-appearance-panel .nts-color-check { display:none; }
 @media (min-height:621px) { .nts-view[data-layout="compact"]:not(.is-dom):not(.is-inspection):not(.is-introduction) .nts-reading-pair { top:var(--nts-reading-top,255px); } }
 @media (max-width:799px), (max-aspect-ratio: 17/20) {
   .nts-view[data-layout="compact"].is-inspection .nts-presence-controls { top:125px !important; }

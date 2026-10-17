@@ -312,19 +312,50 @@ export class NtsView {
     let readingTop = Math.max(255, controls.bottom - stage.top + 12);
     if (this.appearance.open && !this.appearance.hidden) {
       const panel = this.appearance.querySelector<HTMLElement>(".nts-appearance-panel")!;
-      const short = compact && stage.height <= 620, presence = this.actions.project?.()?.presence;
+      const short = stage.height <= 620 && stage.width < 1000, compactPanel = compact || short;
+      const presence = this.actions.project?.()?.presence;
       // Keep the normal spatial view's upper face clear, including narrow desktops.
       const leftSpace = presence ? presence.x + presence.width * .24 - 28 : 248;
-      panel.style.width = `${short ? 128 : Math.min(248, stage.width - 32, compact || this.state?.inspection ? 248 : Math.max(128, leftSpace))}px`;
       const tracesTop = Math.min(...[...this.element.querySelectorAll<HTMLElement>("[data-nts-memory]")].map(b => b.getBoundingClientRect().top));
-      const panelHeightLimit = short ? Math.max(88, controls.top - stage.top - 152) : Math.min(260, stage.height * .4);
-      panel.style.maxHeight = `${compact ? panelHeightLimit : Math.min(panelHeightLimit, Math.max(44, tracesTop - stage.top - 152))}px`;
+      let compactPanelX = stage.left + 16;
+      if (compactPanel) {
+        // The character occupies the left/center portion of portrait framing. Dock
+        // the opaque editor in the wider side gutter instead of over the model.
+        // Expand the projected bounds slightly to account for silhouette beyond
+        // the authored composition proxy.
+        const silhouetteLeft = presence ? presence.x - presence.width * .12 : stage.width * .35;
+        const silhouetteRight = presence ? presence.x + presence.width * 1.12 : stage.width * .65;
+        const gap = 20;
+        const rightWidth = stage.right - (stage.left + silhouetteRight + gap) - 12;
+        const leftWidth = (stage.left + silhouetteLeft - gap) - (stage.left + 12);
+        const side = rightWidth >= leftWidth ? "right" : "left";
+        const available = Math.max(128, Math.min(stage.width - 24, side === "right" ? rightWidth : leftWidth));
+        const panelWidth = Math.min(248, available);
+        panel.style.width = `${panelWidth}px`;
+        compactPanelX = side === "right"
+          ? Math.min(stage.right - panelWidth - 12, stage.left + silhouetteRight + gap)
+          : Math.max(stage.left + 12, stage.left + silhouetteLeft - gap - panelWidth);
+        if (short && side === "right") {
+          const actionRight = Math.max(...[...this.element.querySelectorAll<HTMLElement>('[data-nts="meet"], [data-nts="inspect"], [data-nts="smile"], [data-nts="hologram"]')].map(action => action.getBoundingClientRect().right));
+          compactPanelX = Math.max(compactPanelX, actionRight + gap);
+          panel.style.width = `${Math.min(248, stage.right - compactPanelX - 12)}px`;
+        }
+      } else {
+        panel.style.width = `${Math.min(248, stage.width - 32, this.state?.inspection ? 248 : Math.max(128, leftSpace))}px`;
+      }
       const trigger = this.appearance.getBoundingClientRect(), panelHeight = panel.getBoundingClientRect().height;
+      const y = short ? stage.top + 140 : compact
+        ? (this.state?.inspection ? Math.max(stage.top + 145, tracesTop - panelHeight - 12) : controls.bottom + 2)
+        : Math.max(stage.top + 140, Math.min(trigger.top - panelHeight - 8, tracesTop - panelHeight - 12));
+      const panelHeightLimit = compactPanel
+        ? (short ? Math.max(44, tracesTop - y - 16) : Math.min(260, stage.height * .4, Math.max(88, tracesTop - y - 12)))
+        : Math.min(260, stage.height * .4);
+      panel.style.maxHeight = `${compactPanel ? panelHeightLimit : Math.min(panelHeightLimit, Math.max(44, tracesTop - stage.top - 152))}px`;
+      const positionedHeight = panel.getBoundingClientRect().height;
       const panelLeft = Math.min(trigger.left - panel.offsetWidth - 12, stage.left + leftSpace - panel.offsetWidth);
-      const x = compact ? stage.left + (short ? 16 : stage.width * .05) : Math.max(stage.left + 16, this.state?.inspection ? trigger.left - panel.offsetWidth - 12 : panelLeft);
-      const y = short ? stage.top + 140 : compact ? (this.state?.inspection ? Math.max(stage.top + 145, tracesTop - panelHeight - 12) : controls.bottom + 8) : Math.max(stage.top + 140, Math.min(trigger.top - panelHeight - 8, tracesTop - panelHeight - 12));
+      const x = compactPanel ? compactPanelX : Math.max(stage.left + 16, this.state?.inspection ? trigger.left - panel.offsetWidth - 12 : panelLeft);
       panel.style.left = `${x - trigger.left}px`; panel.style.top = `${y - trigger.top}px`;
-      if (compact && !this.state?.inspection) readingTop = Math.max(readingTop, y - stage.top + panelHeight + 12);
+      if (compact && !this.state?.inspection) readingTop = Math.max(readingTop, y - stage.top + positionedHeight + 12);
     }
     this.element.style.setProperty("--nts-reading-top", `${readingTop}px`);
   }
