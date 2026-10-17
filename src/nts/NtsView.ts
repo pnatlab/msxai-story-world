@@ -119,7 +119,7 @@ export class NtsView {
     const hologram = this.element.querySelector<HTMLButtonElement>('[data-nts="hologram"]')!;
     hologram.textContent = HOLOGRAM_COPY[this.locale];
     hologram.setAttribute("aria-pressed", String(this.state?.presentation === "hologram"));
-    hologram.disabled = this.state?.phase !== "settled" || !this.actions.project?.()?.mark;
+    hologram.disabled = this.state?.phase !== "settled" || !this.actions.project?.()?.mark || Boolean(this.actions.project?.()?.presentationTransition);
   }
   private cancelLift(): void {
     if (!this.lift) return;

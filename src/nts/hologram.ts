@@ -81,6 +81,9 @@ export class EnergyGraphPresence {
   private readonly geometries = new Set<THREE.BufferGeometry>();
   private readonly materials = new Set<THREE.Material>();
   private readonly pointsMaterial: THREE.ShaderMaterial;
+  private readonly presentationOpacities = new Map<THREE.Material, number>();
+  private readonly drawRanges: { geometry: THREE.BufferGeometry; start: number; count: number; vertices: number; paired: boolean }[] = [];
+  private transitionWeight?: number;
   private mode: PresenceMode = "normal";
   private available = true;
   private nodeCount = 0;
@@ -95,7 +98,7 @@ export class EnergyGraphPresence {
     this.normalMaterials = new Set(meshes.map(mesh => mesh.material));
     this.pointsMaterial = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, depthTest: true, blending: THREE.AdditiveBlending,
-      uniforms: { uHeight: { value: 900 } },
+      uniforms: { uHeight: { value: 900 }, uPresentationOpacity: { value: 1 } },
       vertexShader: `attribute float aSize; attribute float aStrength; attribute vec3 color;
         varying vec3 vColor; varying float vStrength; uniform float uHeight;
         void main(){
@@ -105,11 +108,11 @@ export class EnergyGraphPresence {
           gl_PointSize=clamp(aSize*uHeight*projectionMatrix[1][1]*length(modelMatrix[0].xyz)/max(1.0,-view.z),2.2,21.0);
           gl_Position=projectionMatrix*view;
         }`,
-      fragmentShader: `varying vec3 vColor; varying float vStrength;
+      fragmentShader: `varying vec3 vColor; varying float vStrength; uniform float uPresentationOpacity;
         void main(){
           float radius=length(gl_PointCoord-vec2(.5))*2.0; if(radius>1.0)discard;
           float core=exp(-radius*radius*10.0), halo=pow(1.0-radius,2.0)*.24;
-          gl_FragColor=vec4(mix(vColor,vec3(1.0),core*.25),(core+halo)*vStrength);
+          gl_FragColor=vec4(mix(vColor,vec3(1.0),core*.25),(core+halo)*vStrength*uPresentationOpacity);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
         }`,
@@ -169,7 +172,13 @@ export class EnergyGraphPresence {
       this.geometries.add(geometry); this.materials.add(ink); this.head.add(new THREE.LineSegments(geometry, ink));
       this.pathSegments += geometry.getAttribute("position").count / 2;
     }
-    this.group.traverse(object => { if (object instanceof THREE.Points || object instanceof THREE.LineSegments) { object.frustumCulled = false; this.drawObjects++; } });
+    this.group.traverse(object => {
+      if (object instanceof THREE.Points || object instanceof THREE.LineSegments) {
+        object.frustumCulled = false; this.drawObjects++;
+        this.drawRanges.push({ geometry: object.geometry, ...object.geometry.drawRange, vertices: object.geometry.getAttribute("position").count, paired: object instanceof THREE.LineSegments });
+      }
+    });
+    this.materials.forEach(material => this.presentationOpacities.set(material, material.opacity));
     this.resize(typeof window === "undefined" ? 900 : window.innerHeight, typeof window === "undefined" ? 1 : window.devicePixelRatio);
   }
   setMode(mode: PresenceMode): void {
@@ -179,7 +188,26 @@ export class EnergyGraphPresence {
     this.originals.forEach(({ mesh, layers }) => { mesh.layers.mask = mode === "hologram" ? 0 : layers; });
     this.group.visible = this.available && mode === "hologram";
   }
-  setAvailable(available: boolean): void { this.available = available; this.group.visible = available && this.mode === "hologram"; if (!available) this.pulse.setEligible(false); }
+  /** Bounded transition overlay; canonical buffers/material values are restored at settle. */
+  setTransitionMix(normalVisible: boolean, weight: number): void {
+    this.transitionWeight = THREE.MathUtils.clamp(weight, 0, 1);
+    this.originals.forEach(({ mesh, layers }) => { mesh.layers.mask = normalVisible ? layers : 0; });
+    this.group.visible = this.available && this.transitionWeight > .0001;
+    this.pointsMaterial.uniforms.uPresentationOpacity.value = this.transitionWeight;
+    this.presentationOpacities.forEach((opacity, material) => { if (material !== this.pointsMaterial) material.opacity = opacity * this.transitionWeight!; });
+    this.drawRanges.forEach(({ geometry, vertices, paired, start, count }) => {
+      const reveal = Math.floor(vertices * Math.sqrt(this.transitionWeight!));
+      geometry.setDrawRange(start, this.transitionWeight === 1 ? count : paired ? reveal - reveal % 2 : reveal);
+    });
+  }
+  clearTransitionMix(): void {
+    this.transitionWeight = undefined; this.pointsMaterial.uniforms.uPresentationOpacity.value = 1;
+    this.presentationOpacities.forEach((opacity, material) => { material.opacity = opacity; });
+    this.drawRanges.forEach(({ geometry, start, count }) => geometry.setDrawRange(start, count));
+    this.originals.forEach(({ mesh, layers }) => { mesh.layers.mask = this.mode === "hologram" ? 0 : layers; });
+    this.group.visible = this.available && this.mode === "hologram";
+  }
+  setAvailable(available: boolean): void { this.available = available; this.group.visible = available && (this.transitionWeight === undefined ? this.mode === "hologram" : this.transitionWeight > .0001); if (!available) this.pulse.setEligible(false); }
   setReading(reading: boolean): void {
     this.normalMaterials.forEach(material => { if (material instanceof THREE.MeshStandardMaterial) material.emissiveIntensity = reading ? .015 : .055; });
   }
