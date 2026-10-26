@@ -55,11 +55,13 @@ describe("MindHome bounded photographic presentation", () => {
     const { presentation: p, requests } = setup();
     await Promise.all([p.load(), p.load()]);
     expect(requests).toHaveLength(3); expect(requests.join(" ")).toContain("mindhome/cool-air.png");
-    expect(p.inspection).toMatchObject({ ready: true, currentCondition: "cool-air", effectActive: true, eventDurationMs: 1800 });
+    expect(p.inspection).toMatchObject({ ready: true, currentCondition: "cool-air", effectActive: true, eventDurationMs: 4200, transitionDurationMs: 2500 });
     const material = (p.scene.children[0] as THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>).material;
     const original = material.map;
     expect(p.update(1900)).toBe(true);
-    expect(p.update(2800)).toBe(false);
+    expect(p.update(5199)).toBe(true);
+    expect(p.update(5200)).toBe(false);
+    expect(p.update(6100)).toBe(false);
     expect(p.update(9000)).toBe(false);
     expect(p.inspection.effectActive).toBe(false); expect(material.map).toBe(original);
     p.dispose();
@@ -76,9 +78,11 @@ describe("MindHome bounded photographic presentation", () => {
         expect(p.select(condition)).toBe(true);
         expect(p.select(CONDITIONS.find(other => other !== condition)!)).toBe(false);
         expect(p.inspection.requestedCondition).toBe(condition);
-        expect(p.update(now + 530)).toBe(true); expect(p.inspection.currentCondition).toBe(condition);
-        expect(p.update(now + 1050)).toBe(true); expect(p.inspection.transitionActive).toBe(false);
-        expect(p.update(now + 1050 + p.inspection.eventDurationMs)).toBe(false);
+        expect(p.update(now + 260)).toBe(true); expect(p.inspection.currentCondition).not.toBe(condition);
+        expect(p.update(now + 1380)).toBe(true); expect(p.inspection.currentCondition).not.toBe(condition);
+        expect(p.update(now + 2500)).toBe(true); expect(p.inspection.currentCondition).toBe(condition);
+        expect(p.inspection.transitionActive).toBe(false);
+        expect(p.update(now + 2500 + p.inspection.eventDurationMs)).toBe(false);
         expect(p.inspection.resources).toEqual(resources); expect(p.inspection.effectActive).toBe(false);
         now += 4000;
       }
@@ -86,6 +90,28 @@ describe("MindHome bounded photographic presentation", () => {
     expect(requests).toHaveLength(3);
     expect((p.scene.children[0] as THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>).material.map).toBe(originalMap);
     p.dispose(); expect(p.inspection.resources).toEqual({ geometries: 0, materials: 0, textures: 0 });
+  });
+
+  it("crossfades the next photograph after the narrative lead-out and starts one finite event", async () => {
+    const { presentation: p, setTime } = setup(); await p.load();
+    const transitionImage = p.scene.children[1] as THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+    setTime(2000);
+    expect(p.select("sun-shade")).toBe(true);
+    expect(transitionImage.visible).toBe(true);
+    expect(p.update(2259)).toBe(true);
+    expect(transitionImage.material.opacity).toBe(0);
+    expect(p.inspection.currentCondition).toBe("cool-air");
+    expect(p.update(2260)).toBe(true);
+    expect(transitionImage.material.opacity).toBe(0);
+    expect(p.update(3380)).toBe(true);
+    expect(transitionImage.material.opacity).toBeGreaterThan(0);
+    expect(transitionImage.material.opacity).toBeLessThan(1);
+    expect(p.inspection.currentCondition).toBe("cool-air");
+    expect(p.update(4500)).toBe(true);
+    expect(p.inspection).toMatchObject({ currentCondition: "sun-shade", transitionActive: false, effectActive: true, eventDurationMs: 3500 });
+    expect(transitionImage.visible).toBe(false);
+    expect(p.update(8000)).toBe(false);
+    p.dispose();
   });
 
   it("Reduced Motion and document hiding settle the requested condition and cancel all finite motion", async () => {

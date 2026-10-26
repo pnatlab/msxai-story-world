@@ -9,6 +9,8 @@ type MindHomeInspection = {
     currentCondition: Condition;
     requestedCondition: Condition;
     transitionActive: boolean;
+    transitionDurationMs: number;
+    eventDurationMs: number;
     effectActive: boolean;
     effectKind: string | null;
     resources: { geometries: number; materials: number; textures: number };
@@ -159,6 +161,8 @@ test("explicit ecosystem Visit opens one place with three freely selectable cond
   await expect(root(page).locator('[data-mindhome="return"]')).toBeEnabled();
   await settled(page);
   await expect(page.locator(".mindhome-phrase")).toHaveText(phrases.en["cool-air"]);
+  await expect(page.locator(".mindhome-phrase")).toBeVisible();
+  await expect.poll(async () => (await inspect(page)).mindhome?.transitionDurationMs).toBe(2500);
   await expect(page.locator("[data-mindhome-condition]")).toHaveCount(3);
   await expect(root(page)).not.toContainText(/\b(?:Pause|Reflect|Regain Agency|completed|unlock)\b/i);
   await page.screenshot({ path: info.outputPath("mindhome-cool-air-desktop.png") });
@@ -203,6 +207,24 @@ test("keyboard and live EN/TH use the shared locale while Reduced Motion stays s
   await idle(page);
   await page.keyboard.press("Escape");
   await expect(root(page)).toBeHidden(); await expect(visit(page)).toBeFocused();
+});
+
+test("narrative fades with the image transition and finite events settle at the authored durations", async ({ page }) => {
+  test.setTimeout(60000);
+  await selectMindHome(page); await visit(page).click(); await settled(page);
+  const phrase = page.locator(".mindhome-phrase");
+  for (const [id, duration] of [["sun-shade", 3500], ["rain-green", 4600], ["cool-air", 4200]] as const) {
+    const oldText = await phrase.textContent();
+    await condition(page, id).click();
+    await expect(root(page).locator(".mindhome-photo-stage")).toHaveAttribute("data-transitioning", "true");
+    await expect(phrase).toHaveText(oldText!);
+    await expect.poll(() => phrase.evaluate(element => Number.parseFloat(getComputedStyle(element).opacity)), { intervals: [30] }).toBeLessThan(.4);
+    await expect.poll(async () => (await inspect(page)).mindhome?.eventDurationMs).toBe(duration);
+    await settled(page, id);
+    await expect(phrase).toHaveText(phrases.en[id]);
+    await expect.poll(() => phrase.evaluate(element => Number.parseFloat(getComputedStyle(element).opacity))).toBe(1);
+    await idle(page);
+  }
 });
 
 test("finite registered events return idle and repeated visits dispose resources, including interrupted transitions", async ({ page }) => {
@@ -260,10 +282,12 @@ test("one photograph framing keeps controls separate across desktop, portrait, s
       const layout = await root(page).evaluate(element => {
         const stage = element.querySelector(".mindhome-photo-stage")!.getBoundingClientRect();
         const image = element.querySelector<HTMLImageElement>(".mindhome-photo-stage img")!;
+        const phrase = element.querySelector<HTMLElement>(".mindhome-phrase")!.getBoundingClientRect();
         const targets = [...element.querySelectorAll<HTMLButtonElement>("button")].filter(button => !button.hidden);
         return {
           overflow: document.documentElement.scrollWidth > innerWidth,
           stage: { left: stage.left, right: stage.right, top: stage.top, bottom: stage.bottom, width: stage.width, height: stage.height },
+          phrase: { left: phrase.left, right: phrase.right, top: phrase.top, bottom: phrase.bottom, width: phrase.width, height: phrase.height },
           imageReady: image.complete && image.naturalWidth > 0,
           targets: targets.map(button => {
             const box = button.getBoundingClientRect();
@@ -278,6 +302,12 @@ test("one photograph framing keeps controls separate across desktop, portrait, s
       expect(layout.imageReady).toBe(true);
       expect(layout.stage.left).toBeGreaterThanOrEqual(0); expect(layout.stage.right).toBeLessThanOrEqual(viewport.width);
       expect(layout.stage.width).toBeGreaterThan(200); expect(layout.stage.height).toBeGreaterThan(100);
+      expect(layout.phrase.left, `${viewport.width}×${viewport.height} ${locale} phrase left`).toBeGreaterThanOrEqual(layout.stage.left);
+      expect(layout.phrase.right, `${viewport.width}×${viewport.height} ${locale} phrase right`).toBeLessThanOrEqual(layout.stage.right);
+      expect(layout.phrase.top, `${viewport.width}×${viewport.height} ${locale} phrase top`).toBeGreaterThan(layout.stage.top);
+      expect(layout.phrase.bottom, `${viewport.width}×${viewport.height} ${locale} phrase bottom`).toBeLessThan(layout.stage.bottom);
+      expect(layout.phrase.width, `${viewport.width}×${viewport.height} ${locale} phrase width`).toBeLessThan(layout.stage.width);
+      await expect(page.locator(".mindhome-phrase")).toHaveText(phrases[locale]["sun-shade"]);
       for (const target of layout.targets) {
         expect(target.width, `${viewport.width}×${viewport.height}: ${target.text}`).toBeGreaterThanOrEqual(44);
         expect(target.height, `${viewport.width}×${viewport.height}: ${target.text}`).toBeGreaterThanOrEqual(44);

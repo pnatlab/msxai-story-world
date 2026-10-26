@@ -1,11 +1,13 @@
 import * as THREE from "three";
 import { CONDITIONS, REGISTRATION, deterministicSample, isRainExterior, type ImagePolygon, type ImageRect, type MindHomeCondition } from "./registration";
 
-const TRANSITION_MS = 1050;
-const EVENT_MS: Record<MindHomeCondition, number> = { "cool-air": 1800, "sun-shade": 1400, "rain-green": 2100 };
+const TRANSITION_MS = 2500;
+const NARRATIVE_OUT_MS = 260;
+const EVENT_MS: Record<MindHomeCondition, number> = { "cool-air": 4200, "sun-shade": 3500, "rain-green": 4600 };
 const FILES: Record<MindHomeCondition, string> = { "cool-air": "cool-air.png", "sun-shade": "sun-and-shade.png", "rain-green": "rain-and-green.png" };
 const KIND = { "cool-air": "far-mist", "sun-shade": "reflected-light", "rain-green": "rain-water" } as const;
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
+const easeInOut = (value: number) => value * value * (3 - 2 * value);
 
 function polygonFunction(name: string, polygon: ImagePolygon): string {
   const points = polygon.map(([x, y]) => `vec2(${x.toFixed(5)},${y.toFixed(5)})`);
@@ -22,13 +24,15 @@ export class MindHomePresentation {
   private readonly plane = new THREE.PlaneGeometry(1, 1);
   private readonly imageMaterial = new THREE.MeshBasicMaterial({ toneMapped: false, depthTest: false, depthWrite: false });
   private readonly image = new THREE.Mesh(this.plane, this.imageMaterial);
+  private readonly transitionMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, toneMapped: false, depthTest: false, depthWrite: false });
+  private readonly transitionImage = new THREE.Mesh(this.plane, this.transitionMaterial);
   private readonly veilMaterial = new THREE.MeshBasicMaterial({ color: "#39433f", transparent: true, opacity: 0, toneMapped: false, depthTest: false, depthWrite: false });
   private readonly veil = new THREE.Mesh(this.plane, this.veilMaterial);
   private readonly effectGroup = new THREE.Group();
   private readonly shaders: THREE.ShaderMaterial[] = [];
   private readonly geometries = new Set<THREE.BufferGeometry>([this.plane]);
   private readonly textures = new Map<MindHomeCondition, THREE.Texture>();
-  private readonly materials = new Set<THREE.Material>([this.imageMaterial, this.veilMaterial]);
+  private readonly materials = new Set<THREE.Material>([this.imageMaterial, this.transitionMaterial, this.veilMaterial]);
   private readonly effectObjects = new Map<MindHomeCondition, THREE.Object3D[]>();
   private current: MindHomeCondition = "cool-air";
   private requested: MindHomeCondition = "cool-air";
@@ -45,8 +49,9 @@ export class MindHomePresentation {
     this.camera.position.z = 3;
     this.scene.background = new THREE.Color("#303c38");
     this.image.position.set(.5, .5, 0); this.image.renderOrder = 0;
+    this.transitionImage.position.set(.5, .5, .01); this.transitionImage.renderOrder = 1; this.transitionImage.visible = false;
     this.veil.position.set(.5, .5, .1); this.veil.renderOrder = 20; this.veil.visible = false;
-    this.scene.add(this.image, this.effectGroup, this.veil);
+    this.scene.add(this.image, this.transitionImage, this.effectGroup, this.veil);
     this.createMist(); this.createReflection(); this.createRain(); this.hideEffects();
   }
 
@@ -78,7 +83,12 @@ export class MindHomePresentation {
     if (!this.ready || this.disposed || !CONDITIONS.includes(condition) || this.transitionStarted !== undefined || condition === this.current) return false;
     this.hideEffects(); this.eventStarted = undefined; this.requested = condition;
     if (this.reducedMotion || !this.visible) this.finishTransition();
-    else { this.transitionStarted = performance.now(); this.veil.visible = true; }
+    else {
+      this.transitionStarted = performance.now();
+      this.transitionMaterial.map = this.textures.get(condition)!;
+      this.transitionMaterial.opacity = 0; this.transitionImage.visible = true;
+      this.veil.visible = true;
+    }
     this.invalidate(); return true;
   }
 
@@ -86,9 +96,11 @@ export class MindHomePresentation {
   update(now: number): boolean {
     if (this.disposed || !this.ready || !this.visible) return false;
     if (this.transitionStarted !== undefined) {
-      const progress = clamp((now - this.transitionStarted) / TRANSITION_MS);
-      this.veilMaterial.opacity = .32 * Math.sin(Math.PI * progress) ** 2;
-      if (progress >= .5 && this.current !== this.requested) this.setCurrent(this.requested);
+      const elapsed = now - this.transitionStarted;
+      if (elapsed < NARRATIVE_OUT_MS) return true;
+      const progress = clamp((elapsed - NARRATIVE_OUT_MS) / (TRANSITION_MS - NARRATIVE_OUT_MS));
+      this.transitionMaterial.opacity = easeInOut(progress);
+      this.veilMaterial.opacity = .07 * Math.sin(Math.PI * progress) ** 2;
       if (progress < 1) return true;
       this.finishTransition(); this.beginEvent(now);
     }
@@ -141,6 +153,7 @@ export class MindHomePresentation {
   private setCurrent(condition: MindHomeCondition): void { this.current = condition; this.imageMaterial.map = this.textures.get(condition)!; }
   private finishTransition(): void {
     this.transitionStarted = undefined; this.veil.visible = false; this.veilMaterial.opacity = 0;
+    this.transitionImage.visible = false; this.transitionMaterial.opacity = 0; this.transitionMaterial.map = null;
     if (this.ready) this.setCurrent(this.requested);
   }
   private beginEvent(now: number): void {

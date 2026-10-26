@@ -20,9 +20,8 @@ export class MindHomeView {
     this.element.className = "mindhome-destination";
     this.element.hidden = true;
     this.element.setAttribute("aria-labelledby", "mindhome-title");
-    this.element.innerHTML = `<header class="mindhome-header"><h1 id="mindhome-title" tabindex="-1">MindHome</h1><div class="mindhome-header-actions"><div class="mindhome-languages" role="group"><button type="button" data-mindhome-locale="en" lang="en">EN</button><button type="button" data-mindhome-locale="th" lang="th">TH</button></div><button type="button" data-mindhome="return"></button></div></header><div class="mindhome-photo-stage"><img width="1672" height="941" decoding="async" alt=""></div><footer class="mindhome-footer"><p class="mindhome-phrase" aria-live="polite" aria-atomic="true"></p><div class="mindhome-conditions" role="group"></div><p class="mindhome-status" role="status"></p></footer>`;
+    this.element.innerHTML = `<header class="mindhome-header"><h1 id="mindhome-title" tabindex="-1">MindHome</h1><div class="mindhome-header-actions"><div class="mindhome-languages" role="group"><button type="button" data-mindhome-locale="en" lang="en">EN</button><button type="button" data-mindhome-locale="th" lang="th">TH</button></div><button type="button" data-mindhome="return"></button></div></header><div class="mindhome-photo-stage"><img width="1672" height="941" decoding="async" alt=""><p class="mindhome-phrase" aria-live="polite" aria-atomic="true"></p></div><footer class="mindhome-footer"><div class="mindhome-conditions" role="group"></div><p class="mindhome-status" role="status"></p></footer>`;
     this.photoStage = this.element.querySelector(".mindhome-photo-stage")!;
-    this.photoStage.setAttribute("role", "img");
     this.image = this.photoStage.querySelector("img")!;
     const choices = this.element.querySelector(".mindhome-conditions")!;
     for (const condition of CONDITIONS) {
@@ -42,6 +41,7 @@ export class MindHomeView {
     this.element.lang = this.locale;
     this.element.dataset.condition = state.condition;
     this.element.dataset.transitioning = String(state.transitioning);
+    this.photoStage.dataset.transitioning = String(state.transitioning);
     this.element.classList.toggle("is-webgl", state.webgl);
     if (!wasActive) this.element.classList.add("is-arriving");
     const copy = MINDHOME_COPY[this.locale];
@@ -54,11 +54,11 @@ export class MindHomeView {
       button.textContent = copy.names[condition]; button.setAttribute("aria-pressed", String(state.condition === condition));
       button.disabled = state.transitioning || state.phase === "loading";
     }
-    this.element.querySelector(".mindhome-phrase")!.textContent = copy.phrases[state.displayedCondition];
+    const phrase = this.element.querySelector<HTMLElement>(".mindhome-phrase")!;
+    phrase.lang = this.locale; phrase.textContent = copy.phrases[state.displayedCondition];
     this.element.querySelector(".mindhome-status")!.textContent = state.imageFailed ? copy.imageUnavailable : state.phase === "loading" ? copy.loading : "";
     this.photoStage.setAttribute("aria-busy", String(state.phase === "loading" || state.transitioning));
     this.image.alt = `${copy.alt} — ${copy.names[state.displayedCondition]}`;
-    this.photoStage.setAttribute("aria-label", this.image.alt);
     const desiredImage = state.webgl ? state.displayedCondition : state.condition;
     if (this.imageRequest !== desiredImage) this.loadImage(desiredImage);
   }
