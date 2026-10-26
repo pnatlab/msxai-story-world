@@ -283,11 +283,15 @@ test("one photograph framing keeps controls separate across desktop, portrait, s
         const stage = element.querySelector(".mindhome-photo-stage")!.getBoundingClientRect();
         const image = element.querySelector<HTMLImageElement>(".mindhome-photo-stage img")!;
         const phrase = element.querySelector<HTMLElement>(".mindhome-phrase")!.getBoundingClientRect();
+        const presence = element.querySelector<HTMLElement>(".mindhome-presence")!.getBoundingClientRect();
+        const footer = element.querySelector<HTMLElement>(".mindhome-footer")!.getBoundingClientRect();
         const targets = [...element.querySelectorAll<HTMLButtonElement>("button")].filter(button => !button.hidden);
         return {
           overflow: document.documentElement.scrollWidth > innerWidth,
           stage: { left: stage.left, right: stage.right, top: stage.top, bottom: stage.bottom, width: stage.width, height: stage.height },
           phrase: { left: phrase.left, right: phrase.right, top: phrase.top, bottom: phrase.bottom, width: phrase.width, height: phrase.height },
+          presence: { left: presence.left, right: presence.right, top: presence.top, bottom: presence.bottom, width: presence.width },
+          footerTop: footer.top,
           imageReady: image.complete && image.naturalWidth > 0,
           targets: targets.map(button => {
             const box = button.getBoundingClientRect();
@@ -305,7 +309,17 @@ test("one photograph framing keeps controls separate across desktop, portrait, s
       expect(layout.phrase.left, `${viewport.width}×${viewport.height} ${locale} phrase left`).toBeGreaterThanOrEqual(layout.stage.left);
       expect(layout.phrase.right, `${viewport.width}×${viewport.height} ${locale} phrase right`).toBeLessThanOrEqual(layout.stage.right);
       expect(layout.phrase.top, `${viewport.width}×${viewport.height} ${locale} phrase top`).toBeGreaterThan(layout.stage.top);
-      expect(layout.phrase.bottom, `${viewport.width}×${viewport.height} ${locale} phrase bottom`).toBeLessThan(layout.stage.bottom);
+      if (viewport.width <= 700) {
+        // Portrait keeps the complete place above a shared foreground composition;
+        // the sentence has its own space beside the figure, before the controls.
+        expect(layout.phrase.top).toBeGreaterThanOrEqual(layout.stage.bottom);
+        expect(layout.phrase.bottom).toBeLessThan(layout.footerTop + 128);
+        expect(layout.presence.bottom).toBeLessThan(layout.footerTop + 128);
+      } else {
+        expect(layout.phrase.bottom, `${viewport.width}×${viewport.height} ${locale} phrase bottom`).toBeLessThan(layout.stage.bottom);
+      }
+      expect(layout.presence.right).toBeLessThan(layout.stage.left + layout.stage.width * .49);
+      expect(layout.presence.width).toBeLessThanOrEqual(layout.stage.width * .48 + 1);
       expect(layout.phrase.width, `${viewport.width}×${viewport.height} ${locale} phrase width`).toBeLessThan(layout.stage.width);
       await expect(page.locator(".mindhome-phrase")).toHaveText(phrases[locale]["sun-shade"]);
       for (const target of layout.targets) {

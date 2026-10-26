@@ -40,9 +40,9 @@ async function enter(page: Page): Promise<void> {
   await visit(page).click();
   await expect(root(page)).toBeVisible();
   await expect(root(page)).toHaveClass(/is-webgl/);
-  await expect(root(page).locator(".mindhome-photo-stage")).toHaveAttribute("role", "img");
+  await expect(root(page).locator(".mindhome-photo-stage")).toHaveAttribute("role", "group");
   await expect(root(page).locator(".mindhome-photo-stage")).toHaveAccessibleName(/same MindHome/);
-  await expect(root(page).locator(".mindhome-photo-stage img")).toHaveCSS("visibility", "hidden");
+  await expect(root(page).locator(".mindhome-environment-image")).toHaveCSS("visibility", "hidden");
   await expect(choice(page, "cool-air")).toBeEnabled();
   await expect(choice(page, "cool-air")).toHaveAttribute("aria-pressed", "true");
   await expect(phrase(page)).toHaveText(phrases.en["cool-air"]);

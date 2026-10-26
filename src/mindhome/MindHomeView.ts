@@ -1,5 +1,5 @@
 import type { Locale } from "../story/localeState";
-import { MINDHOME_COPY, MINDHOME_IMAGES, closedMindHome, type MindHomeState } from "./content";
+import { MINDHOME_COPY, MINDHOME_IMAGES, MINDHOME_PRESENCE_IMAGES, closedMindHome, type MindHomeState } from "./content";
 import { CONDITIONS, type MindHomeCondition } from "./registration";
 
 /** DOM meaning and controls remain available even when the photographic WebGL pass cannot load. */
@@ -7,6 +7,9 @@ export class MindHomeView {
   readonly element = document.createElement("section");
   readonly photoStage: HTMLElement;
   private readonly image: HTMLImageElement;
+  private readonly presence: HTMLElement;
+  private readonly presenceImages = new Map<MindHomeCondition, HTMLImageElement>();
+  private disposed = false;
   private state = closedMindHome();
   private locale: Locale = "en";
   private imageRequest?: MindHomeCondition;
@@ -22,7 +25,21 @@ export class MindHomeView {
     this.element.setAttribute("aria-labelledby", "mindhome-title");
     this.element.innerHTML = `<header class="mindhome-header"><h1 id="mindhome-title" tabindex="-1">MindHome</h1><div class="mindhome-header-actions"><div class="mindhome-languages" role="group"><button type="button" data-mindhome-locale="en" lang="en">EN</button><button type="button" data-mindhome-locale="th" lang="th">TH</button></div><button type="button" data-mindhome="return"></button></div></header><div class="mindhome-photo-stage"><img width="1672" height="941" decoding="async" alt=""><p class="mindhome-phrase" aria-live="polite" aria-atomic="true"></p></div><footer class="mindhome-footer"><div class="mindhome-conditions" role="group"></div><p class="mindhome-status" role="status"></p></footer>`;
     this.photoStage = this.element.querySelector(".mindhome-photo-stage")!;
+    this.photoStage.setAttribute("role", "group");
     this.image = this.photoStage.querySelector("img")!;
+    this.image.className = "mindhome-environment-image";
+    this.presence = document.createElement("div");
+    this.presence.className = "mindhome-presence";
+    this.presence.setAttribute("role", "img");
+    this.photoStage.insertBefore(this.presence, this.photoStage.querySelector(".mindhome-phrase"));
+    // Three reusable DOM images; no portrait textures enter the shared WebGL scene.
+    for (const condition of CONDITIONS) {
+      const image = document.createElement("img");
+      image.width = 941; image.height = 1672; image.decoding = "async"; image.alt = "";
+      image.hidden = true; image.dataset.presenceCondition = condition;
+      image.onload = image.onerror = () => { if (!this.disposed) this.updatePresence(); };
+      this.presenceImages.set(condition, image); this.presence.append(image);
+    }
     const choices = this.element.querySelector(".mindhome-conditions")!;
     for (const condition of CONDITIONS) {
       const button = document.createElement("button"); button.type = "button"; button.dataset.mindhomeCondition = condition;
@@ -37,14 +54,20 @@ export class MindHomeView {
   render(state: MindHomeState): void {
     const wasActive = this.state.active; this.state = state;
     this.element.hidden = !state.active;
-    if (!state.active) { this.loadGeneration++; this.imageRequest = undefined; this.element.classList.remove("is-arriving"); return; }
+    if (!state.active) { this.loadGeneration++; this.imageRequest = undefined; this.element.classList.remove("is-arriving"); this.updatePresence(); return; }
     this.element.lang = this.locale;
     this.element.dataset.condition = state.condition;
+    this.element.dataset.displayedCondition = state.displayedCondition;
     this.element.dataset.transitioning = String(state.transitioning);
     this.photoStage.dataset.transitioning = String(state.transitioning);
     this.element.classList.toggle("is-webgl", state.webgl);
     if (!wasActive) this.element.classList.add("is-arriving");
     const copy = MINDHOME_COPY[this.locale];
+    for (const [condition, image] of this.presenceImages) {
+      if (!image.hasAttribute("src")) image.src = `${import.meta.env.BASE_URL}mindhome/presence/${MINDHOME_PRESENCE_IMAGES[condition]}`;
+    }
+    this.presence.setAttribute("aria-label", copy.presenceAlt[state.displayedCondition]);
+    this.updatePresence();
     this.element.querySelector('[data-mindhome="return"]')!.textContent = copy.return;
     this.element.querySelector(".mindhome-languages")!.setAttribute("aria-label", copy.language);
     this.element.querySelector(".mindhome-conditions")!.setAttribute("aria-label", copy.conditions);
@@ -59,10 +82,26 @@ export class MindHomeView {
     this.element.querySelector(".mindhome-status")!.textContent = state.imageFailed ? copy.imageUnavailable : state.phase === "loading" ? copy.loading : "";
     this.photoStage.setAttribute("aria-busy", String(state.phase === "loading" || state.transitioning));
     this.image.alt = `${copy.alt} — ${copy.names[state.displayedCondition]}`;
+    this.photoStage.setAttribute("aria-label", this.image.alt);
     const desiredImage = state.webgl ? state.displayedCondition : state.condition;
     if (this.imageRequest !== desiredImage) this.loadImage(desiredImage);
   }
-  dispose(): void { this.loadGeneration++; this.resizeObserver.disconnect(); this.element.remove(); }
+  dispose(): void {
+    this.disposed = true; this.loadGeneration++; this.resizeObserver.disconnect();
+    this.presenceImages.forEach(image => { image.onload = image.onerror = null; });
+    this.presenceImages.clear(); this.element.remove();
+  }
+  private updatePresence(): void {
+    const available = this.state.active && this.state.phase === "ready" && !this.state.transitioning;
+    let ready = false;
+    for (const [condition, image] of this.presenceImages) {
+      image.hidden = condition !== this.state.displayedCondition;
+      if (!image.hidden) ready = image.complete && image.naturalWidth > 0;
+    }
+    this.element.dataset.narrativeReady = String(available);
+    this.presence.dataset.visible = String(available && ready);
+    this.presence.setAttribute("aria-hidden", String(!available || !ready));
+  }
   private loadImage(condition: MindHomeCondition): void {
     this.imageRequest = condition;
     const generation = ++this.loadGeneration, image = new Image();

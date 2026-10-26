@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 /** Real built assets and public DOM; the production build has no inspection API. */
 export default defineConfig({
   testDir: "./qa",
-  testMatch: "mindhome.production.spec.ts",
+  testMatch: "mindhome*.production.spec.ts",
   outputDir: "./test-results/production",
   timeout: 60000,
   fullyParallel: false,
