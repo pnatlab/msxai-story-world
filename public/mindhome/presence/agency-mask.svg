@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 941 1672">
+  <defs><filter id="edge"><feGaussianBlur stdDeviation="9"/></filter><linearGradient id="fade" x2="0" y2="1"><stop offset="0" stop-color="white"/><stop offset=".86" stop-color="white"/><stop offset="1" stop-color="white" stop-opacity="0"/></linearGradient></defs>
+  <g filter="url(#edge)">
+    <path fill="white" d="M0 373Q152 286 420 226Q485 230 550 267Q776 353 923 595Q829 613 759 677Q683 659 599 676Q381 652 184 583Q91 524 14 482Q29 424 0 373Z"/>
+    <path fill="url(#fade)" d="M507 477Q427 470 394 555Q370 614 379 669L365 743L341 790Q325 819 340 855L324 908Q293 935 311 982L337 1010L372 1046Q344 1145 328 1244L313 1672H582L609 1436L616 1210L637 1071Q666 997 675 881Q678 804 625 754L611 697Q649 610 600 529Q570 480 507 477Z"/>
+  </g>
+</svg>

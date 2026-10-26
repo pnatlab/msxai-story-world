@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 941 1672">
+  <defs><filter id="edge"><feGaussianBlur stdDeviation="11"/></filter><filter id="glass"><feGaussianBlur stdDeviation="25"/></filter><linearGradient id="fade" x2="0" y2="1"><stop offset="0" stop-color="white"/><stop offset=".78" stop-color="white"/><stop offset="1" stop-color="white" stop-opacity="0"/></linearGradient></defs>
+  <path fill="white" opacity=".16" filter="url(#glass)" d="M42 855Q164 847 233 875L316 1470L210 1504L55 1459Z"/>
+  <path fill="url(#fade)" filter="url(#edge)" d="M519 300C414 291 367 350 337 420C300 503 320 552 303 625L277 759Q265 879 302 978L318 1058L285 1153L270 1233Q264 1274 302 1303L199 1331L282 1418L720 1465L941 1555V1310L854 1251L827 1190Q861 1015 824 833Q811 752 748 714L733 661Q748 541 708 442C679 352 625 302 519 300Z"/>
+</svg>
