@@ -14,6 +14,7 @@ export interface UiCopy {
   readonly continueOpening: string;
   readonly livingEcosystem: string;
   readonly nutuensaiStory: string;
+  readonly mindhomeStory: string;
   readonly exitEcosystem: string;
   readonly viewEcosystem: string;
   readonly relatedConcepts: string;
@@ -61,6 +62,7 @@ export const UI_COPY: Record<Locale, UiCopy> = {
     continueOpening: "Continue",
     livingEcosystem: "Living Ecosystem",
     nutuensaiStory: "NuTuenSai Story",
+    mindhomeStory: "MindHome Story",
     exitEcosystem: "Return to Story World",
     viewEcosystem: "View whole ecosystem",
     relatedConcepts: "Conceptual connections",
@@ -106,6 +108,7 @@ export const UI_COPY: Record<Locale, UiCopy> = {
     continueOpening: "ดำเนินต่อ",
     livingEcosystem: "ภาพรวมระบบนิเวศ",
     nutuensaiStory: "เรื่องราว NuTuenSai",
+    mindhomeStory: "เรื่องราว MindHome",
     exitEcosystem: "กลับสู่โลกเรื่องเล่า",
     viewEcosystem: "ดูระบบนิเวศทั้งหมด",
     relatedConcepts: "ความเชื่อมโยงเชิงแนวคิด",

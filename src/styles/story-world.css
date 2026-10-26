@@ -69,7 +69,10 @@ button { color: inherit; }
 .primary-button { background: linear-gradient(135deg, #b6f2ff, #68bfdd); border-color: #d5f9ff; color: #062039; font-weight: 720; }
 .nutuensai-story-button { background: #5c4b72; border-color: #b5a2c5; color: #f5edfc; min-height:44px; font-weight:550; }
 .quiet-button.nutuensai-story-button:hover, .quiet-button.nutuensai-story-button:focus-visible { background:#746087; border-color:#d7c6e5; }
-.entry-card > .nutuensai-story-button { margin-top:.75rem; }
+.entry-card__story-shortcuts { display:flex; flex-wrap:wrap; gap:.55rem; margin-top:.75rem; }
+.entry-card__story-shortcuts > button { flex:1 1 11rem; min-width:min(100%, 11rem); min-height:44px; white-space:normal; }
+.mindhome-story-button { background:#245a4a; border-color:#8fb5a7; color:#f5fbf8; font-weight:550; }
+.quiet-button.mindhome-story-button:hover, .quiet-button.mindhome-story-button:focus-visible { background:#306b59; border-color:#b8d5ca; }
 .story-copy > .nutuensai-story-button { margin-top:.7rem; font-size:.86rem; }
 .story-list__current > .nutuensai-story-button { margin-top:.75rem; }
 .icon-button { width: 2.25rem; height: 2.25rem; padding: 0; font-size: 1.35rem; }

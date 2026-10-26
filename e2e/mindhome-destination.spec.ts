@@ -45,6 +45,59 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(key => sessionStorage.setItem(key, "seen"), FOUNDATIONAL_SESSION_KEY);
 });
 
+test("landing shortcuts open MindHome directly and Return restores the landing focus context", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  const ntsShortcut = page.locator('.entry-card [data-nutuensai-entry="home"]');
+  const mindhomeShortcut = page.locator('.entry-card [data-action="mindhome-story"]');
+  await expect(ntsShortcut).toHaveText("NuTuenSai Story");
+  await expect(mindhomeShortcut).toHaveText("MindHome Story");
+  const [ntsBox, mindhomeBox] = await Promise.all([ntsShortcut.boundingBox(), mindhomeShortcut.boundingBox()]);
+  expect(ntsBox).not.toBeNull(); expect(mindhomeBox).not.toBeNull();
+  expect(Math.abs(ntsBox!.y - mindhomeBox!.y)).toBeLessThan(2);
+  expect(ntsBox!.x + ntsBox!.width).toBeLessThanOrEqual(mindhomeBox!.x);
+
+  const before = await inspect(page);
+  await mindhomeShortcut.click();
+  await expect(root(page)).toBeVisible(); await settled(page, "cool-air");
+  expect((await inspect(page)).mindhomeState.condition).toBe("cool-air");
+  expect((await inspect(page)).overviewState).toMatchObject({ open: true, selectedNodeId: "mindhome" });
+  expect((await inspect(page)).storyState).toEqual(before.storyState);
+  await root(page).locator('[data-mindhome="return"]').click();
+  await expect(root(page)).toBeHidden();
+  await expect(mindhomeShortcut).toBeFocused();
+  expect((await inspect(page)).overviewState.open).toBe(false);
+});
+
+test("Thai landing shortcut fits mobile, opens in the shared locale, and Escape returns under Reduced Motion", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await page.locator('[data-locale="th"]').click();
+  const ntsShortcut = page.locator('.entry-card [data-nutuensai-entry="home"]');
+  const mindhomeShortcut = page.locator('.entry-card [data-action="mindhome-story"]');
+  await expect(ntsShortcut).toHaveText("เรื่องราว NuTuenSai");
+  await expect(mindhomeShortcut).toHaveText("เรื่องราว MindHome");
+  const boxes = await Promise.all([ntsShortcut.boundingBox(), mindhomeShortcut.boundingBox()]);
+  expect(boxes.every(Boolean)).toBe(true);
+  for (const box of boxes as NonNullable<(typeof boxes)[number]>[]) {
+    expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+    expect(box!.y).toBeGreaterThanOrEqual(0); expect(box!.y + box!.height).toBeLessThanOrEqual(844);
+  }
+  const [ntsBox, mindhomeBox] = boxes as [NonNullable<(typeof boxes)[number]>, NonNullable<(typeof boxes)[number]>];
+  expect(ntsBox.x + ntsBox.width <= mindhomeBox.x || mindhomeBox.x + mindhomeBox.width <= ntsBox.x ||
+    ntsBox.y + ntsBox.height <= mindhomeBox.y || mindhomeBox.y + mindhomeBox.height <= ntsBox.y).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+
+  await mindhomeShortcut.focus(); await mindhomeShortcut.press("Enter");
+  await expect(root(page)).toBeVisible(); await settled(page, "cool-air");
+  await expect(page.locator(".mindhome-phrase")).toHaveText(phrases.th["cool-air"]);
+  expect((await inspect(page)).mindhome).toMatchObject({ transitionActive: false, effectActive: false });
+  await page.keyboard.press("Escape");
+  await expect(root(page)).toBeHidden(); await expect(mindhomeShortcut).toBeFocused();
+  await expect(page.locator('[data-locale="th"]')).toHaveClass(/is-active/);
+});
+
 async function selectMindHome(page: Page, reduced = false): Promise<void> {
   await page.emulateMedia({ reducedMotion: reduced ? "reduce" : "no-preference" });
   await page.goto("/");

@@ -8,6 +8,7 @@ import type { NutuensaiStorySource } from "../story/nutuensaiStoryJourney";
 
 export interface OverlayActions {
   readonly enterEcosystem: () => void;
+  readonly startMindHomeStory: (trigger: HTMLButtonElement) => void;
   readonly startNutuensaiStory: (source: NutuensaiStorySource, trigger: HTMLButtonElement) => void;
   readonly beginStory: () => void;
   readonly exploreFreely: () => void;
@@ -89,7 +90,10 @@ export class StoryOverlay {
         <button class="quiet-button" type="button" data-action="free" data-copy="free"></button>
         <button class="quiet-button" type="button" data-action="living-ecosystem"></button>
       </div>
-      <button class="quiet-button nutuensai-story-button" type="button" data-action="nutuensai-story" data-nutuensai-entry="home"></button>
+      <div class="entry-card__story-shortcuts">
+        <button class="quiet-button nutuensai-story-button" type="button" data-action="nutuensai-story" data-nutuensai-entry="home"></button>
+        <button class="quiet-button mindhome-story-button" type="button" data-action="mindhome-story"></button>
+      </div>
       <p class="fallback-message" data-copy="fallback" role="status" hidden></p>
     `;
     this.element.append(this.entry);
@@ -144,6 +148,8 @@ export class StoryOverlay {
         actions.startNutuensaiStory(source, button);
       });
     });
+    this.element.querySelector<HTMLButtonElement>('[data-action="mindhome-story"]')!
+      .addEventListener("click", (event) => actions.startMindHomeStory(event.currentTarget as HTMLButtonElement));
     this.element.querySelectorAll('[data-action="living-ecosystem"]').forEach((button) => {
       button.addEventListener("click", actions.enterEcosystem);
     });
@@ -256,6 +262,7 @@ export class StoryOverlay {
     this.element.querySelector('[data-copy="replay-opening"]')!.textContent = copy.replayOpening;
     this.element.querySelectorAll('[data-action="living-ecosystem"]').forEach((button) => { button.textContent = copy.livingEcosystem; });
     this.element.querySelectorAll('[data-action="nutuensai-story"]').forEach(button => { button.textContent = copy.nutuensaiStory; });
+    this.element.querySelector<HTMLButtonElement>('[data-action="mindhome-story"]')!.textContent = copy.mindhomeStory;
     const opening = localizedBeat(this.world.beats[0], this.locale);
     document.title = copy.pageTitle;
     document.documentElement.lang = this.locale;

@@ -68,10 +68,12 @@ let recognitionReadyAt = 0;
 let lastNtsVisitRequest: NtsVisitRequest | undefined;
 let returnFocus: HTMLElement | null = null;
 let requestedReturnFocus: HTMLButtonElement | null = null;
+let mindhomeReturnToLanding = false;
 let opening: FoundationalOpening;
 
 const overlay = new StoryOverlay(STORY_WORLD_V0_1, {
   enterEcosystem: () => { nutuensaiJourney.reset(); feedback(ecosystem.enter()); },
+  startMindHomeStory: startMindHomeStory,
   startNutuensaiStory,
   beginStory: () => controller.beginStory(),
   exploreFreely: () => controller.exploreFreely(),
@@ -207,6 +209,15 @@ function startNutuensaiStory(source: NutuensaiStorySource, trigger: HTMLButtonEl
   queueMicrotask(advanceNutuensaiJourney);
 }
 
+function startMindHomeStory(trigger: HTMLButtonElement): void {
+  if (destroyed || mindhomeState.active || nts.active || nutuensaiJourney.active || ecosystem.getState().open) return;
+  mindhomeReturnToLanding = true;
+  requestedReturnFocus = trigger;
+  feedback(ecosystem.enter());
+  if (ecosystem.getState().selectedNodeId !== "mindhome") selectEcosystem("mindhome");
+  void enterMindHome();
+}
+
 /** The same render owner advances authored travel only after its camera settles. */
 function advanceNutuensaiJourney(): void {
   if (destroyed || !visible || !nutuensaiJourney.active || !ecosystem.getState().open) return;
@@ -283,10 +294,14 @@ function refreshMindHome(): void {
 
 function returnFromMindHome(): void {
   if (!mindhomeState.active) return;
+  const returnToLanding = mindhomeReturnToLanding;
+  mindhomeReturnToLanding = false;
   ++mindhomeGeneration; mindhomeState = closedMindHome(); mindhomeFallback = false; mindhomeDomReady = undefined; mindhomeDomFailed = undefined;
   mindhomeView.render(mindhomeState); stage.classList.remove("is-mindhome"); scene?.returnFromMindHome();
   overlay.element.inert = false; overlay.element.hidden = false;
-  ecosystemView.render(ecosystem.getState()); ecosystemView.focusVisitMindHome(); refreshSceneActivity();
+  if (returnToLanding) ecosystem.exit();
+  else { ecosystemView.render(ecosystem.getState()); ecosystemView.focusVisitMindHome(); }
+  refreshSceneActivity();
 }
 
 let ntsWasActive = false;
