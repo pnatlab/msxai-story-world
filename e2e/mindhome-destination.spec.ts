@@ -71,6 +71,39 @@ test("landing shortcuts open MindHome directly and Return restores the landing f
   expect((await inspect(page)).overviewState.open).toBe(false);
 });
 
+test("MindHome header pairs its wordmark with a decorative bundled MSxAI symbol across responsive sizes", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await selectMindHome(page, true);
+  await visit(page).click(); await settled(page);
+  const brand = page.locator(".mindhome-brand");
+  const symbol = brand.locator(".mindhome-brand-symbol");
+  const wordmark = brand.getByRole("heading", { name: "MindHome", exact: true });
+  await expect(symbol).toBeVisible();
+  await expect(symbol).toHaveAttribute("alt", "");
+  await expect(symbol).toHaveAttribute("aria-hidden", "true");
+  const symbolSource = await symbol.getAttribute("src");
+  expect(symbolSource).toContain("data:image/svg+xml,");
+  expect(decodeURIComponent(symbolSource!)).toContain("MindHome by MSxAI Symbol");
+  await expect(wordmark).toBeVisible();
+
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 375, height: 667 }, { width: 430, height: 932 }, { width: 844, height: 390 }]) {
+    await page.setViewportSize(viewport);
+    const bounds = await page.evaluate(() => {
+      const box = (selector: string) => {
+        const { x, y, right, bottom, width, height } = document.querySelector(selector)!.getBoundingClientRect();
+        return { x, y, right, bottom, width, height };
+      };
+      return { brand: box(".mindhome-brand"), symbol: box(".mindhome-brand-symbol"), wordmark: box(".mindhome-brand h1"), actions: box(".mindhome-header-actions"), header: box(".mindhome-header"), stage: box(".mindhome-photo-stage"), overflow: document.documentElement.scrollWidth > innerWidth };
+    });
+    expect(bounds.overflow).toBe(false);
+    expect(bounds.symbol.width).toBeGreaterThanOrEqual(viewport.height <= 520 ? 25 : viewport.width <= 700 ? 27 : 33);
+    expect(bounds.symbol.right).toBeLessThanOrEqual(bounds.wordmark.x);
+    expect(bounds.brand.right).toBeLessThanOrEqual(bounds.actions.x);
+    expect(bounds.header.bottom).toBeLessThan(bounds.stage.y);
+  }
+  await expect(page.locator(".mindhome-destination")).toHaveAccessibleName("MindHome");
+});
+
 test("Thai landing shortcut fits mobile, opens in the shared locale, and Escape returns under Reduced Motion", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "reduce" });

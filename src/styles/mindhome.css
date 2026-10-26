@@ -18,6 +18,8 @@
   padding: 0 clamp(16px, 3.3vw, 52px) 24px; color: var(--mindhome-copy, #f1f3ed);
 }
 .mindhome-header { width: 100%; max-width: 1540px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 0; }
+.mindhome-brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.mindhome-brand-symbol { display: block; flex: none; width: 34px; height: 34px; opacity: .88; }
 .mindhome-header h1 { margin: 0; font-weight: 480; font-size: clamp(1.5rem, 2.4vw, 2rem); letter-spacing: -.035em; }
 .mindhome-header-actions, .mindhome-languages { display: flex; align-items: center; gap: 8px; }
 .mindhome-destination button { min-height: 44px; border: 1px solid #7099a0; border-radius: 999px; background: var(--mindhome-surface, #244e59); padding: 10px 18px; color: #f1f3ed; font-size: .9rem; cursor: pointer; }
@@ -51,7 +53,9 @@
 @media (max-width: 700px) {
   .mindhome-destination { padding: 0 0 24px; justify-content: flex-start; }
   .mindhome-header { padding: 14px 16px 18px; align-items: flex-start; gap: 10px; }
-  .mindhome-header h1 { padding-top: 8px; font-size: 1.55rem; }
+  .mindhome-brand { gap: 6px; padding-top: 8px; }
+  .mindhome-brand-symbol { width: 28px; height: 28px; }
+  .mindhome-header h1 { font-size: 1.45rem; }
   .mindhome-header-actions { flex-wrap: wrap; justify-content: flex-end; max-width: 220px; gap: 8px; }
   .mindhome-header-actions > button { padding: 10px 14px; font-size: .8rem; }
   .mindhome-photo-stage { width: 100%; margin: 8px 0 0; border-radius: 0; }
@@ -67,6 +71,8 @@
 @media (min-width: 701px) and (max-height: 520px) {
   .mindhome-destination { display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, 29%); grid-template-rows: auto 1fr; column-gap: 22px; padding: 0 20px 16px; min-height: 100svh; }
   .mindhome-header { grid-column: 1 / -1; padding: 10px 0; }
+  .mindhome-brand { gap: 6px; }
+  .mindhome-brand-symbol { width: 26px; height: 26px; }
   .mindhome-header h1 { font-size: 1.4rem; }
   .mindhome-photo-stage { width: min(100%, calc((100svh - 86px) * 1.776833)); margin: auto; }
   .mindhome-destination[data-displayed-condition="rain-green"] .mindhome-presence { left: 3%; top: -3%; width: 33%; }
