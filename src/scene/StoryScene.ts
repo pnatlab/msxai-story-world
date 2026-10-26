@@ -883,7 +883,7 @@ export class StoryScene {
       const animate = this.mindhome?.update(now) ?? false;
       const width = this.container.clientWidth, height = this.container.clientHeight;
       this.renderer.setScissorTest(false); this.renderer.setViewport(0, 0, width, height);
-      this.renderer.setClearColor("#192b25"); this.renderer.clear();
+      this.renderer.setClearColor("#173b46"); this.renderer.clear();
       const rect = this.mindhomeBounds?.();
       if (this.mindhome?.inspection.ready && rect && rect.width > 0 && rect.height > 0) {
         this.renderer.setViewport(rect.x, height - rect.y - rect.height, rect.width, rect.height);

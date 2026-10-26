@@ -47,7 +47,7 @@ export class MindHomePresentation {
   constructor(private readonly options: { invalidate: () => void; reducedMotion: boolean }) {
     this.reducedMotion = options.reducedMotion;
     this.camera.position.z = 3;
-    this.scene.background = new THREE.Color("#303c38");
+    this.scene.background = new THREE.Color("#173b46");
     this.image.position.set(.5, .5, 0); this.image.renderOrder = 0;
     this.transitionImage.position.set(.5, .5, .01); this.transitionImage.renderOrder = 1; this.transitionImage.visible = false;
     this.veil.position.set(.5, .5, .1); this.veil.renderOrder = 20; this.veil.visible = false;

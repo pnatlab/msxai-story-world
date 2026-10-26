@@ -71,8 +71,8 @@ button { color: inherit; }
 .quiet-button.nutuensai-story-button:hover, .quiet-button.nutuensai-story-button:focus-visible { background:#746087; border-color:#d7c6e5; }
 .entry-card__story-shortcuts { display:flex; flex-wrap:wrap; gap:.55rem; margin-top:.75rem; }
 .entry-card__story-shortcuts > button { flex:1 1 11rem; min-width:min(100%, 11rem); min-height:44px; white-space:normal; }
-.mindhome-story-button { background:#245a4a; border-color:#8fb5a7; color:#f5fbf8; font-weight:550; }
-.quiet-button.mindhome-story-button:hover, .quiet-button.mindhome-story-button:focus-visible { background:#306b59; border-color:#b8d5ca; }
+.mindhome-story-button { background:#386f79; border-color:#8db9bb; color:#f5fbf8; font-weight:550; }
+.quiet-button.mindhome-story-button:hover, .quiet-button.mindhome-story-button:focus-visible { background:#4b858d; border-color:#b9ded9; }
 .story-copy > .nutuensai-story-button { margin-top:.7rem; font-size:.86rem; }
 .story-list__current > .nutuensai-story-button { margin-top:.75rem; }
 .icon-button { width: 2.25rem; height: 2.25rem; padding: 0; font-size: 1.35rem; }
