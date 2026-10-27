@@ -19,7 +19,7 @@ export class MindHomeView {
   constructor(private readonly actions: {
     select: (condition: MindHomeCondition) => void; return: () => void; locale: (locale: Locale) => void;
     imageReady: (condition: MindHomeCondition) => void; imageFailed: (condition: MindHomeCondition) => void;
-    resize: () => void;
+    resize: () => void; toggleInvitation: () => void;
   }) {
     this.element.className = "mindhome-destination";
     this.element.hidden = true;
@@ -40,6 +40,12 @@ export class MindHomeView {
     this.presence.className = "mindhome-presence";
     this.presence.setAttribute("role", "img");
     this.photoStage.insertBefore(this.presence, this.photoStage.querySelector(".mindhome-phrase"));
+    const invitation = document.createElement("button");
+    invitation.type = "button"; invitation.className = "mindhome-invitation";
+    invitation.dataset.mindhomeInvite = "";
+    invitation.innerHTML = '<span class="mindhome-invitation-light" aria-hidden="true"></span><span class="mindhome-invitation-cue" aria-hidden="true"></span>';
+    invitation.addEventListener("click", actions.toggleInvitation);
+    this.photoStage.insertBefore(invitation, this.photoStage.querySelector(".mindhome-phrase"));
     // Three reusable DOM images; no portrait textures enter the shared WebGL scene.
     for (const condition of CONDITIONS) {
       const image = document.createElement("img");
@@ -67,10 +73,17 @@ export class MindHomeView {
     this.element.dataset.condition = state.condition;
     this.element.dataset.displayedCondition = state.displayedCondition;
     this.element.dataset.transitioning = String(state.transitioning);
+    this.element.dataset.invitationState = state.invitation;
     this.photoStage.dataset.transitioning = String(state.transitioning);
     this.element.classList.toggle("is-webgl", state.webgl);
     if (!wasActive) this.element.classList.add("is-arriving");
     const copy = MINDHOME_COPY[this.locale];
+    const invitation = this.element.querySelector<HTMLButtonElement>("[data-mindhome-invite]")!;
+    invitation.hidden = !state.webgl;
+    const invitationCopy = state.invitation === "quiet" || state.invitation === "inviting" ? copy.invite : copy.dismiss;
+    invitation.setAttribute("aria-label", invitationCopy);
+    invitation.querySelector<HTMLElement>(".mindhome-invitation-cue")!.textContent = invitationCopy;
+    invitation.disabled = !state.webgl || state.phase !== "ready" || state.transitioning || state.invitation === "inviting" || state.invitation === "dismissing";
     for (const [condition, image] of this.presenceImages) {
       if (!image.hasAttribute("src")) image.src = `${import.meta.env.BASE_URL}mindhome/presence/${MINDHOME_PRESENCE_IMAGES[condition]}`;
     }
@@ -83,11 +96,11 @@ export class MindHomeView {
     for (const condition of CONDITIONS) {
       const button = this.element.querySelector<HTMLButtonElement>(`[data-mindhome-condition="${condition}"]`)!;
       button.textContent = copy.names[condition]; button.setAttribute("aria-pressed", String(state.condition === condition));
-      button.disabled = state.transitioning || state.phase === "loading";
+      button.disabled = state.transitioning || state.phase === "loading" || state.invitation === "inviting" || state.invitation === "dismissing";
     }
     const phrase = this.element.querySelector<HTMLElement>(".mindhome-phrase")!;
     phrase.lang = this.locale; phrase.textContent = copy.phrases[state.displayedCondition];
-    this.element.querySelector(".mindhome-status")!.textContent = state.imageFailed ? copy.imageUnavailable : state.phase === "loading" ? copy.loading : "";
+    this.element.querySelector(".mindhome-status")!.textContent = state.imageFailed ? copy.imageUnavailable : state.phase === "loading" ? copy.loading : state.invitationFailed ? copy.invitationUnavailable : "";
     this.photoStage.setAttribute("aria-busy", String(state.phase === "loading" || state.transitioning));
     this.image.alt = `${copy.alt} — ${copy.names[state.displayedCondition]}`;
     this.photoStage.setAttribute("aria-label", this.image.alt);

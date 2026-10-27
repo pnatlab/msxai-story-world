@@ -84,6 +84,7 @@ export class EnergyGraphPresence {
   private readonly presentationOpacities = new Map<THREE.Material, number>();
   private readonly drawRanges: { geometry: THREE.BufferGeometry; start: number; count: number; vertices: number; paired: boolean }[] = [];
   private transitionWeight?: number;
+  private contextOpacity = 1;
   private mode: PresenceMode = "normal";
   private available = true;
   private nodeCount = 0;
@@ -98,14 +99,14 @@ export class EnergyGraphPresence {
     this.normalMaterials = new Set(meshes.map(mesh => mesh.material));
     this.pointsMaterial = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, depthTest: true, blending: THREE.AdditiveBlending,
-      uniforms: { uHeight: { value: 900 }, uPresentationOpacity: { value: 1 } },
+      uniforms: { uHeight: { value: 900 }, uPresentationOpacity: { value: 1 }, uContextPointScale: { value: 1 } },
       vertexShader: `attribute float aSize; attribute float aStrength; attribute vec3 color;
-        varying vec3 vColor; varying float vStrength; uniform float uHeight;
+        varying vec3 vColor; varying float vStrength; uniform float uHeight; uniform float uContextPointScale;
         void main(){
           vec4 view = modelViewMatrix * vec4(position,1.0);
           float edge = pow(1.0-abs(dot(normalize(normalMatrix*normal),normalize(-view.xyz))),2.0);
           vColor = mix(color,vec3(.78,.94,1.0),edge*.12); vStrength = aStrength*(.65+edge*.55);
-          gl_PointSize=clamp(aSize*uHeight*projectionMatrix[1][1]*length(modelMatrix[0].xyz)/max(1.0,-view.z),2.2,21.0);
+          gl_PointSize=clamp(aSize*uHeight*projectionMatrix[1][1]*length(modelMatrix[0].xyz)/max(1.0,-view.z),2.2,21.0)*uContextPointScale;
           gl_Position=projectionMatrix*view;
         }`,
       fragmentShader: `varying vec3 vColor; varying float vStrength; uniform float uPresentationOpacity;
@@ -193,16 +194,16 @@ export class EnergyGraphPresence {
     this.transitionWeight = THREE.MathUtils.clamp(weight, 0, 1);
     this.originals.forEach(({ mesh, layers }) => { mesh.layers.mask = normalVisible ? layers : 0; });
     this.group.visible = this.available && this.transitionWeight > .0001;
-    this.pointsMaterial.uniforms.uPresentationOpacity.value = this.transitionWeight;
-    this.presentationOpacities.forEach((opacity, material) => { if (material !== this.pointsMaterial) material.opacity = opacity * this.transitionWeight!; });
+    this.pointsMaterial.uniforms.uPresentationOpacity.value = this.transitionWeight * this.contextOpacity;
+    this.presentationOpacities.forEach((opacity, material) => { if (material !== this.pointsMaterial) material.opacity = opacity * this.transitionWeight! * this.contextOpacity; });
     this.drawRanges.forEach(({ geometry, vertices, paired, start, count }) => {
       const reveal = Math.floor(vertices * Math.sqrt(this.transitionWeight!));
       geometry.setDrawRange(start, this.transitionWeight === 1 ? count : paired ? reveal - reveal % 2 : reveal);
     });
   }
   clearTransitionMix(): void {
-    this.transitionWeight = undefined; this.pointsMaterial.uniforms.uPresentationOpacity.value = 1;
-    this.presentationOpacities.forEach((opacity, material) => { material.opacity = opacity; });
+    this.transitionWeight = undefined; this.pointsMaterial.uniforms.uPresentationOpacity.value = this.contextOpacity;
+    this.presentationOpacities.forEach((opacity, material) => { material.opacity = opacity * this.contextOpacity; });
     this.drawRanges.forEach(({ geometry, start, count }) => geometry.setDrawRange(start, count));
     this.originals.forEach(({ mesh, layers }) => { mesh.layers.mask = this.mode === "hologram" ? 0 : layers; });
     this.group.visible = this.available && this.mode === "hologram";
@@ -212,6 +213,15 @@ export class EnergyGraphPresence {
     this.normalMaterials.forEach(material => { if (material instanceof THREE.MeshStandardMaterial) material.emissiveIntensity = reading ? .015 : .055; });
   }
   resize(height: number, ratio = 1): void { this.pointsMaterial.uniforms.uHeight.value = height * Math.min(ratio, 2); }
+  /** Smaller photographic stages retain the same nodes without merging their points. */
+  setContextPointScale(scale: number): void { this.pointsMaterial.uniforms.uContextPointScale.value = THREE.MathUtils.clamp(scale, .1, 1); }
+  /** A surrounding scene can soften the presentation without changing graph data. */
+  setContextOpacity(opacity: number): void {
+    this.contextOpacity = THREE.MathUtils.clamp(opacity, 0, 1);
+    const weight = (this.transitionWeight ?? 1) * this.contextOpacity;
+    this.pointsMaterial.uniforms.uPresentationOpacity.value = weight;
+    this.presentationOpacities.forEach((base, material) => { if (material !== this.pointsMaterial) material.opacity = base * weight; });
+  }
   get inspection() {
     return { mode: this.mode, visible: this.group.visible, canonicalHidden: this.originals.every(({ mesh }) => mesh.layers.mask === 0),
       normalMaterialCount: this.normalMaterials.size, nodeCount: this.nodeCount, connectionCount: this.connectionCount,

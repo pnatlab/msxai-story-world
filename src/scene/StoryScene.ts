@@ -261,6 +261,8 @@ export class StoryScene {
     }
   }
   public selectMindHome(condition: MindHomeCondition): boolean { return this.mindhome?.select(condition) ?? false; }
+  public toggleMindHomeInvitation(): boolean { return this.mindhome?.toggleInvitation() ?? false; }
+  public dismissMindHomeInvitation(): boolean { return this.mindhome?.dismissInvitation() ?? false; }
   public resizeMindHome(): void { if (this.mindhomeActive) this.requestRender(); }
   public get mindhomeInspection() { return this.mindhome ? { ...this.mindhome.inspection, imageBounds: this.mindhomeBounds?.() } : undefined; }
   public returnFromMindHome(): void {
@@ -886,6 +888,7 @@ export class StoryScene {
       this.renderer.setClearColor("#173b46"); this.renderer.clear();
       const rect = this.mindhomeBounds?.();
       if (this.mindhome?.inspection.ready && rect && rect.width > 0 && rect.height > 0) {
+        this.mindhome.resizeInvitation(rect.height, window.devicePixelRatio);
         this.renderer.setViewport(rect.x, height - rect.y - rect.height, rect.width, rect.height);
         this.renderer.setScissor(rect.x, height - rect.y - rect.height, rect.width, rect.height);
         this.renderer.setScissorTest(true);

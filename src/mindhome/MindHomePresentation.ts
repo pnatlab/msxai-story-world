@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { MindHomeInvitation } from "./MindHomeInvitation";
 import { CONDITIONS, REGISTRATION, deterministicSample, isRainExterior, type ImagePolygon, type ImageRect, type MindHomeCondition } from "./registration";
 
 const TRANSITION_MS = 2500;
@@ -21,6 +22,7 @@ const PLANE_VERTEX = `uniform vec4 uRect; varying vec2 vImage; varying vec2 vLoc
 export class MindHomePresentation {
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.OrthographicCamera(0, 1, 1, 0, .01, 10);
+  private readonly invitation: MindHomeInvitation;
   private readonly plane = new THREE.PlaneGeometry(1, 1);
   private readonly imageMaterial = new THREE.MeshBasicMaterial({ toneMapped: false, depthTest: false, depthWrite: false });
   private readonly image = new THREE.Mesh(this.plane, this.imageMaterial);
@@ -46,6 +48,7 @@ export class MindHomePresentation {
 
   constructor(private readonly options: { invalidate: () => void; reducedMotion: boolean }) {
     this.reducedMotion = options.reducedMotion;
+    this.invitation = new MindHomeInvitation(this.scene, () => this.invalidate(), options.reducedMotion);
     this.camera.position.z = 3;
     this.scene.background = new THREE.Color("#173b46");
     this.image.position.set(.5, .5, 0); this.image.renderOrder = 0;
@@ -80,8 +83,9 @@ export class MindHomePresentation {
   }
 
   select(condition: MindHomeCondition): boolean {
-    if (!this.ready || this.disposed || !CONDITIONS.includes(condition) || this.transitionStarted !== undefined || condition === this.current) return false;
+    if (!this.ready || this.disposed || !CONDITIONS.includes(condition) || this.transitionStarted !== undefined || condition === this.current || ["inviting", "dismissing"].includes(this.invitation.inspection.phase)) return false;
     this.hideEffects(); this.eventStarted = undefined; this.requested = condition;
+    this.invitation.setBusy(true);
     if (this.reducedMotion || !this.visible) this.finishTransition();
     else {
       this.transitionStarted = performance.now();
@@ -95,29 +99,45 @@ export class MindHomePresentation {
   /** Only event uniforms change per frame. No timers, allocations or texture/geometry recreation. */
   update(now: number): boolean {
     if (this.disposed || !this.ready || !this.visible) return false;
+    let animate = false;
     if (this.transitionStarted !== undefined) {
       const elapsed = now - this.transitionStarted;
-      if (elapsed < NARRATIVE_OUT_MS) return true;
-      const progress = clamp((elapsed - NARRATIVE_OUT_MS) / (TRANSITION_MS - NARRATIVE_OUT_MS));
-      this.transitionMaterial.opacity = easeInOut(progress);
-      this.veilMaterial.opacity = .07 * Math.sin(Math.PI * progress) ** 2;
-      if (progress < 1) return true;
-      this.finishTransition(); this.beginEvent(now);
+      if (elapsed < NARRATIVE_OUT_MS) animate = true;
+      else {
+        const progress = clamp((elapsed - NARRATIVE_OUT_MS) / (TRANSITION_MS - NARRATIVE_OUT_MS));
+        this.transitionMaterial.opacity = easeInOut(progress);
+        this.veilMaterial.opacity = .07 * Math.sin(Math.PI * progress) ** 2;
+        if (progress < 1) animate = true;
+        else { this.finishTransition(); this.beginEvent(now); }
+      }
     }
     if (this.eventStarted !== undefined) {
       const progress = clamp((now - this.eventStarted) / EVENT_MS[this.current]);
-      if (progress >= 1) { this.eventStarted = undefined; this.hideEffects(); return false; }
-      const envelope = Math.sin(Math.PI * progress) ** 2;
-      for (const material of this.shaders) { material.uniforms.uProgress.value = progress; material.uniforms.uEnvelope.value = envelope; }
-      return true;
+      if (progress >= 1) { this.eventStarted = undefined; this.hideEffects(); }
+      else {
+        const envelope = Math.sin(Math.PI * progress) ** 2;
+        for (const material of this.shaders) { material.uniforms.uProgress.value = progress; material.uniforms.uEnvelope.value = envelope; }
+        animate = true;
+      }
     }
-    return false;
+    this.invitation.setBusy(this.transitionStarted !== undefined || this.eventStarted !== undefined);
+    return this.invitation.update(now) || animate;
   }
+
+  toggleInvitation(): boolean {
+    if (!this.ready || this.disposed || this.transitionStarted !== undefined) return false;
+    // A human invitation takes the stage; stop the optional local weather event.
+    this.eventStarted = undefined; this.hideEffects(); this.invitation.setBusy(false);
+    return this.invitation.toggle();
+  }
+  dismissInvitation(): boolean { return this.invitation.dismiss(); }
+  resizeInvitation(height: number, ratio: number): void { this.invitation.resize(height, ratio); }
 
   setReducedMotion(reduced: boolean): void {
     if (this.disposed || reduced === this.reducedMotion) return;
     this.reducedMotion = reduced;
     if (reduced) { this.finishTransition(); this.eventStarted = undefined; this.hideEffects(); }
+    this.invitation.setReducedMotion(reduced);
     this.invalidate();
   }
 
@@ -126,6 +146,7 @@ export class MindHomePresentation {
     this.visible = visible;
     if (!visible) { this.finishTransition(); this.eventStarted = undefined; this.hideEffects(); }
     else this.invalidate();
+    this.invitation.setVisible(visible);
   }
 
   get inspection() {
@@ -136,6 +157,7 @@ export class MindHomePresentation {
       eventDurationMs: EVENT_MS[this.current], transitionDurationMs: TRANSITION_MS,
       resources: { geometries: this.geometries.size, materials: this.materials.size, textures: this.textures.size },
       registeredRegions: { mist: 2, rainLayers: 2, rippleCenters: REGISTRATION.waterRippleCenters.length },
+      invitation: this.invitation.inspection,
       reducedMotion: this.reducedMotion, visible: this.visible, disposed: this.disposed,
     };
   }
@@ -143,6 +165,7 @@ export class MindHomePresentation {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true; this.ready = false; this.transitionStarted = this.eventStarted = undefined;
+    this.invitation.dispose();
     this.textures.forEach(texture => texture.dispose()); this.textures.clear();
     this.materials.forEach(material => material.dispose()); this.materials.clear();
     this.geometries.forEach(geometry => geometry.dispose()); this.geometries.clear();

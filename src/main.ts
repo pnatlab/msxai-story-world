@@ -127,6 +127,7 @@ const ntsView = new NtsView({
 stage.append(ntsView.element);
 const mindhomeView = new MindHomeView({
   select: selectMindHome, return: returnFromMindHome, locale: locale => localeController.setLocale(locale),
+  toggleInvitation: toggleMindHomeInvitation,
   resize: () => scene?.resizeMindHome(),
   imageReady: condition => {
     mindhomeDomReady = condition;
@@ -277,17 +278,22 @@ async function enterMindHome(): Promise<void> {
 }
 
 function selectMindHome(condition: MindHomeCondition): void {
-  if (!mindhomeState.active || mindhomeState.phase !== "ready" || mindhomeState.transitioning || condition === mindhomeState.condition) return;
+  if (!mindhomeState.active || mindhomeState.phase !== "ready" || mindhomeState.transitioning || ["inviting", "dismissing"].includes(mindhomeState.invitation) || condition === mindhomeState.condition) return;
   if (mindhomeState.webgl && !scene?.selectMindHome(condition)) return;
   mindhomeState = { ...mindhomeState, condition, phase: mindhomeState.webgl ? "ready" : "loading", imageFailed: false };
   refreshMindHome(); mindhomeView.render(mindhomeState);
 }
 
+function toggleMindHomeInvitation(): void {
+  if (!mindhomeState.active || !mindhomeState.webgl || mindhomeState.transitioning) return;
+  if (scene?.toggleMindHomeInvitation()) refreshMindHome();
+}
+
 function refreshMindHome(): void {
   if (!mindhomeState.active || !mindhomeState.webgl) return;
   const presentation = scene?.mindhomeInspection;
-  if (presentation && (mindhomeState.transitioning !== presentation.transitionActive || mindhomeState.displayedCondition !== presentation.currentCondition)) {
-    mindhomeState = { ...mindhomeState, transitioning: presentation.transitionActive, displayedCondition: presentation.currentCondition };
+  if (presentation && (mindhomeState.transitioning !== presentation.transitionActive || mindhomeState.displayedCondition !== presentation.currentCondition || mindhomeState.invitation !== presentation.invitation.phase || mindhomeState.invitationFailed !== presentation.invitation.failed)) {
+    mindhomeState = { ...mindhomeState, transitioning: presentation.transitionActive, displayedCondition: presentation.currentCondition, invitation: presentation.invitation.phase, invitationFailed: presentation.invitation.failed };
     mindhomeView.render(mindhomeState);
   }
 }
@@ -366,7 +372,12 @@ const unsubscribeLocale = localeController.subscribe((locale) => { overlay.setLo
 
 const onKeyDown = (event: KeyboardEvent): void => {
   if (event.key !== "Escape") return;
-  if (mindhomeState.active) { event.preventDefault(); event.stopImmediatePropagation(); returnFromMindHome(); return; }
+  if (mindhomeState.active) {
+    event.preventDefault(); event.stopImmediatePropagation();
+    if (mindhomeState.invitation !== "quiet") { scene?.dismissMindHomeInvitation(); refreshMindHome(); }
+    else returnFromMindHome();
+    return;
+  }
   if (nts.escape()) { event.preventDefault(); event.stopImmediatePropagation(); return; }
   const state = controller.getState();
   if (state.aboutOpen) controller.setAboutOpen(false);

@@ -329,6 +329,9 @@ test("one photograph framing keeps controls separate across desktop, portrait, s
           targets: targets.map(button => {
             const box = button.getBoundingClientRect();
             return { text: button.textContent, width: box.width, height: box.height,
+              invitation: button.hasAttribute("data-mindhome-invite"),
+              imageX: (box.x + box.width / 2 - stage.left) / stage.width,
+              imageY: (box.y + box.height / 2 - stage.top) / stage.height,
               visible: box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight,
               ownsPointer: button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)),
               overlapsPhoto: box.left < stage.right && box.right > stage.left && box.top < stage.bottom && box.bottom > stage.top };
@@ -360,7 +363,14 @@ test("one photograph framing keeps controls separate across desktop, portrait, s
         expect(target.height, `${viewport.width}×${viewport.height}: ${target.text}`).toBeGreaterThanOrEqual(44);
         expect(target.visible, `${viewport.width}×${viewport.height}: ${target.text}`).toBe(true);
         expect(target.ownsPointer, `${viewport.width}×${viewport.height}: ${target.text}`).toBe(true);
-        expect(target.overlapsPhoto, `${viewport.width}×${viewport.height}: ${target.text}`).toBe(false);
+        if (target.invitation) {
+          // The invitation is intentionally registered to the pavilion in the photograph.
+          expect(target.overlapsPhoto).toBe(true);
+          expect(target.imageX).toBeCloseTo(.64, 2);
+          expect(target.imageY).toBeCloseTo(.55, 2);
+        } else {
+          expect(target.overlapsPhoto, `${viewport.width}×${viewport.height}: ${target.text}`).toBe(false);
+        }
       }
       await page.screenshot({ path: info.outputPath(`mindhome-${viewport.width}x${viewport.height}-${locale}.png`) });
       await choose(page, "rain-green", locale);

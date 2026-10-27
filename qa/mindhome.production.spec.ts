@@ -69,7 +69,7 @@ async function bounds(page: Page) {
       stage: rect(stage), image: rect(image.getBoundingClientRect()), imageLoaded: image.complete && image.naturalWidth === 1672 && image.naturalHeight === 941,
       controls: [...element.querySelectorAll<HTMLButtonElement>("button")].map(button => {
         const box = button.getBoundingClientRect();
-        return { text: button.textContent, ...rect(box),
+        return { text: button.textContent, invitation: button.hasAttribute("data-mindhome-invite"), ...rect(box),
           visible: box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight,
           ownsPointer: button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)),
           overlapsPhoto: box.left < stage.right && box.right > stage.left && box.top < stage.bottom && box.bottom > stage.top };
@@ -174,7 +174,13 @@ test("production registered stage survives active-event resizing at all required
       expect(button.height, button.text ?? "button").toBeGreaterThanOrEqual(44);
       expect(button.visible, button.text ?? "button").toBe(true);
       expect(button.ownsPointer, button.text ?? "button").toBe(true);
-      expect(button.overlapsPhoto, button.text ?? "button").toBe(false);
+      // The invitation is intentionally image-registered; all other controls
+      // must remain outside the photograph as before.
+      expect(button.overlapsPhoto, button.text ?? "button").toBe(button.invitation);
+      if (button.invitation) {
+        expect(button.x + button.width / 2).toBeCloseTo(layout.stage.x + layout.stage.width * .64, 0);
+        expect(button.y + button.height / 2).toBeCloseTo(layout.stage.y + layout.stage.height * .55, 0);
+      }
     }
     await page.screenshot({ path: info.outputPath(`responsive-${viewports[index].width}x${viewports[index].height}-active-rain.png`) });
     await page.waitForTimeout(2200);
