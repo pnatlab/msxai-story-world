@@ -45,7 +45,11 @@
 .mindhome-destination .mindhome-invitation:hover, .mindhome-destination .mindhome-invitation[aria-pressed="true"] { border: 0; background: transparent; box-shadow: none; }
 .mindhome-invitation-light { display: block; width: 9px; height: 9px; margin: auto; border: 1px solid rgba(234, 255, 255, .9); border-radius: 50%; background: #a9f4ff; box-shadow: 0 0 9px 2px rgba(120, 223, 244, .6); }
 .mindhome-destination[data-invitation-state="active"] .mindhome-invitation-light { opacity: 0; }
-.mindhome-invitation-cue { position: absolute; top: calc(100% - 4px); left: 50%; transform: translateX(-50%); width: max-content; max-width: 180px; padding: 4px 8px; border-radius: 6px; background: rgba(23, 59, 70, .88); color: #f1f8f6; font-size: .7rem; line-height: 1.25; opacity: 0; pointer-events: none; }
+.mindhome-invitation-cue { position: absolute; top: calc(100% - 4px); left: 50%; transform: translateX(-50%); width: max-content; max-width: 180px; padding: 4px 8px; border: 1px solid rgba(53, 151, 174, .7); border-radius: 7px; background: #9ce7f6; color: #153b51; font-size: .7rem; font-weight: 600; line-height: 1.25; opacity: 0; pointer-events: none; box-shadow: 0 2px 8px rgba(8, 39, 52, .16); transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease; }
+.mindhome-invitation:hover .mindhome-invitation-cue { background: #b9eff8; border-color: #409eb8; }
+.mindhome-invitation:focus-visible { outline: 2px solid #9ce7f6; outline-offset: 2px; }
+.mindhome-destination[data-invitation-state="active"] .mindhome-invitation-cue { background: #75d2e3; border-color: #3597ae; }
+.mindhome-destination[data-invitation-state="active"] .mindhome-invitation:hover .mindhome-invitation-cue { background: #96e2ee; border-color: #287f98; }
 .mindhome-destination[data-invitation-state="active"] .mindhome-invitation-cue { top: 50%; left: calc(50% + clamp(24px, 4vw, 65px)); transform: translateY(-50%); }
 .mindhome-invitation:hover .mindhome-invitation-cue, .mindhome-invitation:focus-visible .mindhome-invitation-cue { opacity: 1; pointer-events: auto; }
 .mindhome-invitation:disabled .mindhome-invitation-cue { opacity: 0; }
@@ -69,7 +73,7 @@
   .mindhome-header-actions { flex-wrap: wrap; justify-content: flex-end; max-width: 220px; gap: 8px; }
   .mindhome-header-actions > button { padding: 10px 14px; font-size: .8rem; }
   .mindhome-photo-stage { width: 100%; margin: 8px 0 0; border-radius: 0; }
-  .mindhome-destination[data-invitation-state="active"] .mindhome-invitation-cue { max-width: 95px; }
+  .mindhome-destination[data-invitation-state="active"] .mindhome-invitation-cue { max-width: 100px; padding: 4px 7px; }
   .mindhome-presence { left: 0; top: -4%; width: 44%; }
   .mindhome-destination[data-displayed-condition="sun-shade"] .mindhome-presence { left: 1%; top: -4%; width: 43%; }
   .mindhome-destination[data-displayed-condition="rain-green"] .mindhome-presence { left: .5%; top: -14%; width: 48%; }

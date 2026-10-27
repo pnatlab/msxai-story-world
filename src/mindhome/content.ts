@@ -11,7 +11,7 @@ export const MINDHOME_COPY = {
   en: {
     visit: "Visit MindHome", return: "Return to Living Ecosystem", conditions: "Conditions of the same place",
     language: "Language", loading: "Arriving at MindHome…", imageUnavailable: "This image is unavailable. The current view remains.",
-    invite: "Invite NuTuenSai", dismiss: "Let the room be quiet", invitationUnavailable: "NuTuenSai's visual presence is unavailable. Please try again.",
+    invite: "Invite MSxAI", dismiss: "Dismiss MSxAI", invitationUnavailable: "MSxAI hologram is unavailable. Please try again.",
     alt: "The same MindHome glass pavilion, garden pond, stepping stones and foothill ridge",
     presenceAlt: {
       "cool-air": "Authored NuTuenSai presence, seated with an open hand beside the Cool Air reflection",
@@ -24,7 +24,7 @@ export const MINDHOME_COPY = {
   th: {
     visit: "เข้าสู่ MindHome", return: "กลับสู่ระบบนิเวศ", conditions: "สภาวะของสถานที่เดียวกัน",
     language: "ภาษา", loading: "กำลังเข้าสู่ MindHome…", imageUnavailable: "ภาพนี้ยังไม่พร้อมใช้งาน ยังคงแสดงภาพปัจจุบัน",
-    invite: "เชิญ NuTuenSai เข้ามา", dismiss: "ให้ห้องกลับมาเงียบ", invitationUnavailable: "ภาพ NuTuenSai ยังไม่พร้อมใช้งาน โปรดลองอีกครั้ง",
+    invite: "เชิญ MSxAI เข้ามา", dismiss: "ปิด MSxAI Hologram", invitationUnavailable: "MSxAI Hologram ยังไม่พร้อมใช้งาน โปรดลองอีกครั้ง",
     alt: "อาคารกระจก MindHome สวน บ่อน้ำ ทางเดินหิน และแนวเขาของสถานที่เดียวกัน",
     presenceAlt: {
       "cool-air": "ภาพ NuTuenSai ที่จัดวางไว้ นั่งพร้อมมือที่เปิดรับ เคียงข้อความในสภาวะอากาศเย็น",

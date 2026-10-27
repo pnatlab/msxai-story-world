@@ -5,6 +5,18 @@ const root = (page: Page) => page.locator(".mindhome-destination");
 const invitation = (page: Page) => root(page).locator("[data-mindhome-invite]");
 const condition = (page: Page, id: string) => root(page).locator(`[data-mindhome-condition="${id}"]`);
 
+function contrastRatio(foreground: string, background: string): number {
+  const luminance = (color: string) => {
+    const channels = color.match(/[\d.]+/g)!.slice(0, 3).map(Number).map(value => {
+      const channel = value / 255;
+      return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+    });
+    return .2126 * channels[0] + .7152 * channels[1] + .0722 * channels[2];
+  };
+  const [lighter, darker] = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+  return (lighter + .05) / (darker + .05);
+}
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(key => sessionStorage.setItem(key, "seen"), FOUNDATIONAL_SESSION_KEY);
 });
@@ -24,10 +36,35 @@ test("Human can invite, retain and dismiss the presence by keyboard without carr
   await page.setViewportSize({ width: 390, height: 844 });
   await enter(page);
   const action = invitation(page);
-  await expect(action).toHaveAccessibleName("Invite NuTuenSai");
-  await action.focus(); await action.press("Enter");
+  const cue = root(page).locator(".mindhome-invitation-cue");
+  await expect(action).toHaveAccessibleName("Invite MSxAI");
+  await expect(cue).toHaveText("Invite MSxAI");
+  const quietColors = await cue.evaluate(element => ({
+    background: getComputedStyle(element).backgroundColor,
+    color: getComputedStyle(element).color,
+  }));
+  expect(quietColors).toEqual({ background: "rgb(156, 231, 246)", color: "rgb(21, 59, 81)" });
+  expect(contrastRatio(quietColors.color, quietColors.background)).toBeGreaterThanOrEqual(4.5);
+  await action.evaluate(element => element.blur());
+  for (let attempt = 0; attempt < 16 && !(await action.evaluate(element => element.matches(":focus-visible"))); attempt++) {
+    await page.keyboard.press("Tab");
+  }
+  await expect(action).toBeFocused();
+  await expect(cue).toHaveCSS("opacity", "1");
+  await expect(action).toHaveCSS("outline-style", "solid");
+  await page.screenshot({ path: test.info().outputPath("mindhome-msxai-invite-focus-390x844.png") });
+  await action.press("Enter");
   await expect(root(page)).toHaveAttribute("data-invitation-state", "active");
-  await expect(action).toHaveAccessibleName("Let the room be quiet");
+  await expect(action).toHaveAccessibleName("Dismiss MSxAI");
+  await expect(cue).toHaveText("Dismiss MSxAI");
+  const activeColors = await cue.evaluate(element => ({
+    background: getComputedStyle(element).backgroundColor,
+    color: getComputedStyle(element).color,
+  }));
+  expect(activeColors.background).toBe("rgb(117, 210, 227)");
+  expect(contrastRatio(activeColors.color, activeColors.background)).toBeGreaterThanOrEqual(4.5);
+  await action.hover();
+  await page.screenshot({ path: test.info().outputPath("mindhome-msxai-dismiss-active-390x844.png") });
 
   for (const id of ["sun-shade", "rain-green", "cool-air"]) {
     await condition(page, id).click();
@@ -36,11 +73,13 @@ test("Human can invite, retain and dismiss the presence by keyboard without carr
   }
 
   await root(page).locator('[data-mindhome-locale="th"]').click();
-  await expect(action).toHaveAccessibleName("ให้ห้องกลับมาเงียบ");
+  await expect(action).toHaveAccessibleName("ปิด MSxAI Hologram");
+  await action.hover();
+  await page.screenshot({ path: test.info().outputPath("mindhome-msxai-dismiss-th-390x844.png") });
   await page.keyboard.press("Escape");
   await expect(root(page)).toBeVisible();
   await expect(root(page)).toHaveAttribute("data-invitation-state", "quiet");
-  await expect(action).toHaveAccessibleName("เชิญ NuTuenSai เข้ามา");
+  await expect(action).toHaveAccessibleName("เชิญ MSxAI เข้ามา");
   await action.focus(); await action.press("Space");
   await expect(root(page)).toHaveAttribute("data-invitation-state", "active");
   await root(page).locator('[data-mindhome="return"]').click();
@@ -80,7 +119,7 @@ test("invitation stays registered inside the photograph at desktop, portrait and
       expect(boxes.action.right).toBeLessThanOrEqual(boxes.stage.right + 1);
       expect(boxes.action.top).toBeGreaterThanOrEqual(boxes.stage.top - 1);
       expect(boxes.action.bottom).toBeLessThanOrEqual(boxes.stage.bottom + 1);
-      await expect(invitation(page)).toHaveAccessibleName(locale === "en" ? "Invite NuTuenSai" : "เชิญ NuTuenSai เข้ามา");
+      await expect(invitation(page)).toHaveAccessibleName(locale === "en" ? "Invite MSxAI" : "เชิญ MSxAI เข้ามา");
     }
   }
   await invitation(page).click();
@@ -111,6 +150,9 @@ test("invitation stays registered inside the photograph at desktop, portrait and
     expect(cue.x).toBeGreaterThanOrEqual(graph.right);
     expect(cue.x + cue.width).toBeLessThanOrEqual(stage.x + stage.width);
     expect(graph.bottom).toBeLessThanOrEqual(phrase.y);
+    await invitation(page).hover();
+    await expect(root(page).locator(".mindhome-invitation-cue")).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath(`mindhome-msxai-active-${viewport.width}x${viewport.height}-th.png`) });
     heights.push(display.height);
   }
   expect(heights[1]).toBeLessThan(heights[0]);
@@ -210,9 +252,9 @@ test("a missing canonical asset leaves the room quiet, reports the failure in bo
   await page.route("**/presence-study.bin", route => route.fulfill({ status: 404, body: "Not found" }));
   await enter(page);
   await invitation(page).click();
-  await expect(root(page).locator(".mindhome-status")).toHaveText("NuTuenSai's visual presence is unavailable. Please try again.");
+  await expect(root(page).locator(".mindhome-status")).toHaveText("MSxAI hologram is unavailable. Please try again.");
   await expect(root(page)).toHaveAttribute("data-invitation-state", "quiet");
-  await expect(invitation(page)).toHaveAccessibleName("Invite NuTuenSai");
+  await expect(invitation(page)).toHaveAccessibleName("Invite MSxAI");
   await expect(invitation(page)).toBeEnabled();
   const failed = await page.evaluate(() => window.__MSXAI_STORY_WORLD__!.inspect());
   if (!("mindhome" in failed) || !failed.mindhome) throw new Error("Expected the MindHome scene");
@@ -220,13 +262,13 @@ test("a missing canonical asset leaves the room quiet, reports the failure in bo
   expect(failed.mindhome.invitation.graph).toBeUndefined();
 
   await root(page).locator('[data-mindhome-locale="th"]').click();
-  await expect(root(page).locator(".mindhome-status")).toHaveText("ภาพ NuTuenSai ยังไม่พร้อมใช้งาน โปรดลองอีกครั้ง");
-  await expect(invitation(page)).toHaveAccessibleName("เชิญ NuTuenSai เข้ามา");
+  await expect(root(page).locator(".mindhome-status")).toHaveText("MSxAI Hologram ยังไม่พร้อมใช้งาน โปรดลองอีกครั้ง");
+  await expect(invitation(page)).toHaveAccessibleName("เชิญ MSxAI เข้ามา");
   await page.unroute("**/presence-study.bin");
   await invitation(page).click();
   await expect(root(page)).toHaveAttribute("data-invitation-state", "active", { timeout: 20000 });
   await expect(root(page).locator(".mindhome-status")).toHaveText("");
-  await expect(invitation(page)).toHaveAccessibleName("ให้ห้องกลับมาเงียบ");
+  await expect(invitation(page)).toHaveAccessibleName("ปิด MSxAI Hologram");
 });
 
 test("without WebGL the invitation is hidden while the still place and Return remain usable", async ({ page }) => {
