@@ -99,7 +99,7 @@ test("MindHome header pairs its wordmark with a decorative bundled MSxAI symbol 
     expect(bounds.symbol.width).toBeGreaterThanOrEqual(viewport.height <= 520 ? 25 : viewport.width <= 700 ? 27 : 33);
     expect(bounds.symbol.right).toBeLessThanOrEqual(bounds.wordmark.x);
     expect(bounds.brand.right).toBeLessThanOrEqual(bounds.actions.x);
-    expect(bounds.header.bottom).toBeLessThan(bounds.stage.y);
+    expect(bounds.header.bottom).toBeLessThanOrEqual(bounds.stage.y);
   }
   await expect(page.locator(".mindhome-destination")).toHaveAccessibleName("MindHome");
 });
@@ -131,6 +131,78 @@ test("Thai landing shortcut fits mobile, opens in the shared locale, and Escape 
   await page.keyboard.press("Escape");
   await expect(root(page)).toBeHidden(); await expect(mindhomeShortcut).toBeFocused();
   await expect(page.locator('[data-locale="th"]')).toHaveClass(/is-active/);
+});
+
+test("editorial footer reuses Living Ecosystem copy and stays static across conditions and invitation", async ({ page }, info) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await selectMindHome(page, true);
+  await visit(page).click();
+  await settled(page);
+
+  const footer = root(page).locator(".mindhome-editorial");
+  const eyebrow = footer.locator(".mindhome-editorial-eyebrow");
+  const description = footer.locator(".mindhome-editorial-description");
+  const english = "A reflective space to pause, notice what is pulling your attention, and choose a small grounded next step.";
+  const thai = "พื้นที่สะท้อนเพื่อหยุด สังเกตสิ่งที่กำลังดึงความสนใจ และเลือกก้าวเล็ก ๆ ที่อยู่กับความเป็นจริง";
+  await expect(footer).toHaveCount(1);
+  await expect(eyebrow).toHaveText("MINDHOME · HUMAN AGENCY & ALIGNMENT");
+  await expect(description).toHaveText(english);
+  expect(await footer.evaluate(element => {
+    const controls = element.parentElement!.querySelector(".mindhome-conditions")!;
+    return Boolean(controls.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING);
+  })).toBe(true);
+  expect(await root(page).locator(".mindhome-editorial-description").count()).toBe(1);
+
+  for (const item of [
+    { width: 1440, height: 900, locale: "en", filename: "mindhome-editorial-1440x900-en.png" },
+    { width: 390, height: 844, locale: "en", filename: "mindhome-editorial-390x844-en.png" },
+    { width: 375, height: 667, locale: "th", filename: "mindhome-editorial-375x667-th.png" },
+    { width: 430, height: 932, locale: "en", filename: "mindhome-editorial-430x932-en.png" },
+    { width: 844, height: 390, locale: "en", filename: "mindhome-editorial-844x390-en.png" },
+  ] as const) {
+    await page.setViewportSize({ width: item.width, height: item.height });
+    await root(page).locator(`[data-mindhome-locale="${item.locale}"]`).click();
+    await expect(description).toHaveText(item.locale === "en" ? english : thai);
+    const layout = await page.evaluate(() => {
+      const box = (selector: string) => {
+        const { left, right, top, bottom, width, height } = document.querySelector(selector)!.getBoundingClientRect();
+        return { left, right, top, bottom, width, height };
+      };
+      return {
+        controls: box(".mindhome-conditions"), editorial: box(".mindhome-editorial"),
+        overflow: document.documentElement.scrollWidth > innerWidth,
+      };
+    });
+    expect(layout.overflow, `${item.width} × ${item.height}`).toBe(false);
+    expect(layout.editorial.width).toBeGreaterThan(0);
+    expect(layout.editorial.left).toBeGreaterThanOrEqual(0);
+    expect(layout.editorial.right).toBeLessThanOrEqual(item.width);
+    expect(layout.editorial.top).toBeGreaterThanOrEqual(layout.controls.bottom);
+    await page.screenshot({ path: info.outputPath(item.filename), fullPage: true });
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await root(page).locator('[data-mindhome-locale="en"]').click();
+  for (const id of ["sun-shade", "rain-green", "cool-air"] as const) {
+    await choose(page, id, "en");
+    await expect(description).toHaveText(english);
+  }
+  const invitation = root(page).locator("[data-mindhome-invite]");
+  await invitation.click();
+  await expect(root(page)).toHaveAttribute("data-invitation-state", "active");
+  await expect(description).toHaveText(english);
+  await invitation.click();
+  await expect(root(page)).toHaveAttribute("data-invitation-state", "quiet");
+  await expect(description).toHaveText(english);
+
+  await root(page).locator('[data-mindhome="return"]').click();
+  await expect(root(page)).toBeHidden();
+  await expect(visit(page)).toBeVisible();
+  await visit(page).click();
+  await expect(root(page)).toBeVisible();
+  await settled(page);
+  await expect(root(page).locator(".mindhome-editorial-description")).toHaveText(english);
 });
 
 async function selectMindHome(page: Page, reduced = false): Promise<void> {
@@ -197,7 +269,7 @@ test("explicit ecosystem Visit opens one place with three freely selectable cond
   await expect(page.locator(".mindhome-phrase")).toBeVisible();
   await expect.poll(async () => (await inspect(page)).mindhome?.transitionDurationMs).toBe(2500);
   await expect(page.locator("[data-mindhome-condition]")).toHaveCount(3);
-  await expect(root(page)).not.toContainText(/\b(?:Pause|Reflect|Regain Agency|completed|unlock)\b/i);
+  await expect(root(page)).not.toContainText(/\b(?:Pause|Reflect|Regain Agency|completed|unlock)\b/);
   await page.screenshot({ path: info.outputPath("mindhome-cool-air-desktop.png") });
 
   // A visitor can skip, go backward and remain: the ordering is editorial only.

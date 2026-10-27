@@ -60,6 +60,9 @@
 .mindhome-photo-stage[data-transitioning="true"] .mindhome-phrase { opacity: 0; transform: translate(-50%, 5px); transition-duration: 240ms; }
 .mindhome-conditions { display: flex; justify-content: center; gap: 12px; }
 .mindhome-conditions button { min-width: 152px; }
+.mindhome-editorial { width: min(100%, 660px); margin: 24px auto 0; text-align: center; }
+.mindhome-editorial-eyebrow { margin: 0 0 7px; color: var(--mindhome-aqua, #b9e0dc); font-size: .68rem; font-weight: 560; letter-spacing: .14em; line-height: 1.5; }
+.mindhome-editorial-description { max-width: 640px; margin: 0 auto; color: var(--mindhome-muted, #c7d9d8); font-size: .96rem; line-height: 1.65; text-wrap: pretty; }
 .mindhome-status { min-height: 1.4em; margin: 8px 0 0; font-size: .8rem; color: var(--mindhome-muted, #c7d9d8); text-align: center; }
 .mindhome-destination.is-arriving .mindhome-header, .mindhome-destination.is-arriving .mindhome-footer { animation: mindhome-arrival .55s ease-out both; }
 @keyframes mindhome-arrival { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -82,6 +85,9 @@
   .mindhome-photo-stage[data-transitioning="true"] .mindhome-phrase { transform: none; }
   .mindhome-conditions { width: 100%; gap: 7px; }
   .mindhome-conditions button { flex: 1; min-width: 0; min-height: 58px; padding: 10px 8px; font-size: .86rem; line-height: 1.35; }
+  .mindhome-editorial { width: 100%; margin-top: 26px; }
+  .mindhome-editorial-eyebrow { font-size: .64rem; letter-spacing: .12em; }
+  .mindhome-editorial-description { max-width: 38rem; font-size: .92rem; line-height: 1.6; }
 }
 @media (min-width: 701px) and (max-height: 520px) {
   .mindhome-destination { display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, 29%); grid-template-rows: auto 1fr; column-gap: 22px; padding: 0 20px 16px; min-height: 100svh; }
@@ -95,6 +101,8 @@
   .mindhome-phrase { bottom: 8%; font-size: .88rem; }
   .mindhome-conditions { width: 100%; flex-direction: column; gap: 7px; }
   .mindhome-conditions button { min-width: 0; width: 100%; padding: 9px 14px; }
+  .mindhome-editorial { margin-top: 16px; }
+  .mindhome-editorial-description { font-size: .88rem; line-height: 1.55; }
   .mindhome-status { margin-top: 4px; }
 }
 @media (prefers-reduced-motion: reduce) { .mindhome-destination.is-arriving .mindhome-header, .mindhome-destination.is-arriving .mindhome-footer { animation: none; } .mindhome-destination.is-arriving .mindhome-photo-stage::after { display: none; } .mindhome-presence, .mindhome-presence[data-visible="true"], .mindhome-phrase, .mindhome-destination[data-narrative-ready="true"] .mindhome-phrase, .mindhome-photo-stage[data-transitioning="true"] .mindhome-phrase { transition: none; } }

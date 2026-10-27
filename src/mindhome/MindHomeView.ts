@@ -1,5 +1,6 @@
 import type { Locale } from "../story/localeState";
 import mindhomeSymbol from "../assets/product-marks/mindhome.svg";
+import { productIdentity } from "../world/productIdentity";
 import { MINDHOME_COPY, MINDHOME_IMAGES, MINDHOME_PRESENCE_IMAGES, closedMindHome, type MindHomeState } from "./content";
 import { CONDITIONS, type MindHomeCondition } from "./registration";
 
@@ -24,7 +25,7 @@ export class MindHomeView {
     this.element.className = "mindhome-destination";
     this.element.hidden = true;
     this.element.setAttribute("aria-labelledby", "mindhome-title");
-    this.element.innerHTML = `<header class="mindhome-header"><div class="mindhome-brand"><h1 id="mindhome-title" tabindex="-1">MindHome</h1></div><div class="mindhome-header-actions"><div class="mindhome-languages" role="group"><button type="button" data-mindhome-locale="en" lang="en">EN</button><button type="button" data-mindhome-locale="th" lang="th">TH</button></div><button type="button" data-mindhome="return"></button></div></header><div class="mindhome-photo-stage"><img width="1672" height="941" decoding="async" alt=""><p class="mindhome-phrase" aria-live="polite" aria-atomic="true"></p></div><footer class="mindhome-footer"><div class="mindhome-conditions" role="group"></div><p class="mindhome-status" role="status"></p></footer>`;
+    this.element.innerHTML = `<header class="mindhome-header"><div class="mindhome-brand"><h1 id="mindhome-title" tabindex="-1">MindHome</h1></div><div class="mindhome-header-actions"><div class="mindhome-languages" role="group"><button type="button" data-mindhome-locale="en" lang="en">EN</button><button type="button" data-mindhome-locale="th" lang="th">TH</button></div><button type="button" data-mindhome="return"></button></div></header><div class="mindhome-photo-stage"><img width="1672" height="941" decoding="async" alt=""><p class="mindhome-phrase" aria-live="polite" aria-atomic="true"></p></div><footer class="mindhome-footer"><div class="mindhome-conditions" role="group"></div><div class="mindhome-editorial" data-mindhome-editorial><p class="mindhome-editorial-eyebrow"></p><p class="mindhome-editorial-description"></p></div><p class="mindhome-status" role="status"></p></footer>`;
     const brandSymbol = document.createElement("img");
     brandSymbol.className = "mindhome-brand-symbol";
     brandSymbol.src = mindhomeSymbol;
@@ -92,6 +93,8 @@ export class MindHomeView {
     this.element.querySelector('[data-mindhome="return"]')!.textContent = copy.return;
     this.element.querySelector(".mindhome-languages")!.setAttribute("aria-label", copy.language);
     this.element.querySelector(".mindhome-conditions")!.setAttribute("aria-label", copy.conditions);
+    this.element.querySelector<HTMLElement>(".mindhome-editorial-eyebrow")!.textContent = copy.editorialEyebrow;
+    this.element.querySelector<HTMLElement>(".mindhome-editorial-description")!.textContent = productIdentity("mindhome")!.copy[this.locale].description;
     for (const locale of ["en", "th"] as const) this.element.querySelector(`[data-mindhome-locale="${locale}"]`)!.setAttribute("aria-pressed", String(this.locale === locale));
     for (const condition of CONDITIONS) {
       const button = this.element.querySelector<HTMLButtonElement>(`[data-mindhome-condition="${condition}"]`)!;

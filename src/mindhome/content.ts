@@ -12,6 +12,7 @@ export const MINDHOME_COPY = {
     visit: "Visit MindHome", return: "Return to Living Ecosystem", conditions: "Conditions of the same place",
     language: "Language", loading: "Arriving at MindHome…", imageUnavailable: "This image is unavailable. The current view remains.",
     invite: "Invite MSxAI", dismiss: "Dismiss MSxAI", invitationUnavailable: "MSxAI hologram is unavailable. Please try again.",
+    editorialEyebrow: "MINDHOME · HUMAN AGENCY & ALIGNMENT",
     alt: "The same MindHome glass pavilion, garden pond, stepping stones and foothill ridge",
     presenceAlt: {
       "cool-air": "Authored NuTuenSai presence, seated with an open hand beside the Cool Air reflection",
@@ -25,6 +26,7 @@ export const MINDHOME_COPY = {
     visit: "เข้าสู่ MindHome", return: "กลับสู่ระบบนิเวศ", conditions: "สภาวะของสถานที่เดียวกัน",
     language: "ภาษา", loading: "กำลังเข้าสู่ MindHome…", imageUnavailable: "ภาพนี้ยังไม่พร้อมใช้งาน ยังคงแสดงภาพปัจจุบัน",
     invite: "เชิญ MSxAI เข้ามา", dismiss: "ปิด MSxAI Hologram", invitationUnavailable: "MSxAI Hologram ยังไม่พร้อมใช้งาน โปรดลองอีกครั้ง",
+    editorialEyebrow: "MINDHOME · การเลือกของมนุษย์และความสอดคล้อง",
     alt: "อาคารกระจก MindHome สวน บ่อน้ำ ทางเดินหิน และแนวเขาของสถานที่เดียวกัน",
     presenceAlt: {
       "cool-air": "ภาพ NuTuenSai ที่จัดวางไว้ นั่งพร้อมมือที่เปิดรับ เคียงข้อความในสภาวะอากาศเย็น",
