@@ -73,11 +73,13 @@ let lastNtsVisitRequest: NtsVisitRequest | undefined;
 let returnFocus: HTMLElement | null = null;
 let requestedReturnFocus: HTMLButtonElement | null = null;
 let mindhomeReturnToLanding = false;
+let mssReturnToLanding = false;
 let opening: FoundationalOpening;
 
 const overlay = new StoryOverlay(STORY_WORLD_V0_1, {
   enterEcosystem: () => { nutuensaiJourney.reset(); feedback(ecosystem.enter()); },
   startMindHomeStory: startMindHomeStory,
+  startMssStory,
   startNutuensaiStory,
   beginStory: () => controller.beginStory(),
   exploreFreely: () => controller.exploreFreely(),
@@ -238,6 +240,15 @@ function startMindHomeStory(trigger: HTMLButtonElement): void {
   void enterMindHome();
 }
 
+function startMssStory(trigger: HTMLButtonElement): void {
+  if (destroyed || mindhomeState.active || mssActive || nts.active || nutuensaiJourney.active || ecosystem.getState().open) return;
+  mssReturnToLanding = true;
+  requestedReturnFocus = trigger;
+  feedback(ecosystem.enter());
+  if (ecosystem.getState().selectedNodeId !== "mss") selectEcosystem("mss");
+  enterMss();
+}
+
 /** The same render owner advances authored travel only after its camera settles. */
 function advanceNutuensaiJourney(): void {
   if (destroyed || !visible || !nutuensaiJourney.active || !ecosystem.getState().open) return;
@@ -292,14 +303,16 @@ function enterMss(): void {
 
 function returnFromMss(): void {
   if (!mssActive) return;
+  const returnToLanding = mssReturnToLanding;
+  mssReturnToLanding = false;
   mssActive = false;
   mssView.close();
   stage.classList.remove("is-mss", "is-mss-webgl");
   scene?.returnFromMss();
   overlay.element.inert = false;
   overlay.element.hidden = false;
-  ecosystemView.render(ecosystem.getState());
-  ecosystemView.focusVisitMss();
+  if (returnToLanding) ecosystem.exit();
+  else { ecosystemView.render(ecosystem.getState()); ecosystemView.focusVisitMss(); }
   refreshSceneActivity();
 }
 

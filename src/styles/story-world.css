@@ -70,9 +70,11 @@ button { color: inherit; }
 .nutuensai-story-button { background: #5c4b72; border-color: #b5a2c5; color: #f5edfc; min-height:44px; font-weight:550; }
 .quiet-button.nutuensai-story-button:hover, .quiet-button.nutuensai-story-button:focus-visible { background:#746087; border-color:#d7c6e5; }
 .entry-card__story-shortcuts { display:flex; flex-wrap:wrap; gap:.55rem; margin-top:.75rem; }
-.entry-card__story-shortcuts > button { flex:1 1 11rem; min-width:min(100%, 11rem); min-height:44px; white-space:normal; }
+.entry-card__story-shortcuts > button { flex:1 1 8rem; min-width:min(100%, 8rem); min-height:44px; white-space:normal; }
 .mindhome-story-button { background:#386f79; border-color:#8db9bb; color:#f5fbf8; font-weight:550; }
 .quiet-button.mindhome-story-button:hover, .quiet-button.mindhome-story-button:focus-visible { background:#4b858d; border-color:#b9ded9; }
+.mss-story-button { background:#B7E8F8; border-color:#E0F6FF; color:#153B51; font-weight:550; }
+.quiet-button.mss-story-button:hover, .quiet-button.mss-story-button:focus-visible { background:#d0f2fc; border-color:#f3fcff; color:#153B51; }
 .story-copy > .nutuensai-story-button { margin-top:.7rem; font-size:.86rem; }
 .story-list__current > .nutuensai-story-button { margin-top:.75rem; }
 .icon-button { width: 2.25rem; height: 2.25rem; padding: 0; font-size: 1.35rem; }

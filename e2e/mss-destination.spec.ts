@@ -42,6 +42,37 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(key => sessionStorage.setItem(key, "seen"), FOUNDATIONAL_SESSION_KEY);
 });
 
+test("landing shortcut opens the existing MSS story and returns to its origin", async ({ page }, info) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  const shortcut = page.locator('.entry-card [data-action="mss-story"]');
+  const shortcuts = page.locator(".entry-card__story-shortcuts button");
+  await expect(shortcuts).toHaveText(["NuTuenSai Story", "MindHome Story", "MSS Story"]);
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 375, height: 667 }, { width: 844, height: 390 }]) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    const boxes = await shortcuts.evaluateAll(buttons => buttons.map(button => {
+      const rect = button.getBoundingClientRect();
+      return { x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, height: rect.height };
+    }));
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(viewport.width);
+    for (const box of boxes) { expect(box.x).toBeGreaterThanOrEqual(0); expect(box.right).toBeLessThanOrEqual(viewport.width); expect(box.height).toBeGreaterThanOrEqual(44); expect(box.y).toBeGreaterThanOrEqual(0); expect(box.bottom).toBeLessThanOrEqual(viewport.height); }
+    if (viewport.width === 1440) expect(boxes[0].y).toBe(boxes[2].y);
+    await page.screenshot({ path: info.outputPath(`mss-landing-${viewport.width}x${viewport.height}.png`) });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('[data-locale="th"]').click();
+  await expect(shortcut).toHaveText("เรื่องราว MSS");
+  await shortcut.focus(); await shortcut.press("Enter");
+  await expect(root(page)).toBeVisible();
+  await expect(root(page)).toHaveAttribute("data-phase", "0");
+  await expect(root(page)).toHaveAttribute("lang", "th");
+  await root(page).locator('[data-mss="return"]').click();
+  await expect(root(page)).toBeHidden(); await expect(shortcut).toBeFocused();
+  await shortcut.click(); await expect(root(page)).toBeVisible();
+  await page.keyboard.press("Escape"); await expect(root(page)).toBeHidden(); await expect(shortcut).toBeFocused();
+});
+
 async function selectMss(page: Page, fallback = false): Promise<void> {
   await page.goto(fallback ? "/?forceNoWebgl=1" : "/");
   const entry = fallback ? ".story-list" : ".entry-card";
