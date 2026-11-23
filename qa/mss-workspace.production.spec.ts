@@ -82,6 +82,13 @@ test("production preview stays readable on portrait and landscape with pinned ex
     await expect(close(page)).toBeInViewport({ ratio: 1 });
     await expect(returnFromPreview(page)).toBeInViewport({ ratio: 1 });
     await expect(dialog(page).getByRole("textbox")).toBeDisabled();
+    const editorial = dialog(page).locator(".mss-workspace-editorial");
+    await expect(editorial).toHaveCount(1);
+    await expect(editorial.locator("h3")).toHaveText(locale === "th" ? "ตัวอย่างพื้นที่ทำงาน" : "Workspace Preview");
+    await expect(editorial.locator("p")).toHaveText(locale === "th"
+      ? "สำรวจแนวคิดหน้าตาของ MSS Local LLM Lab ผ่านการสาธิตแบบอ่านอย่างเดียว โดยไม่มีการเชื่อมต่อโมเดล AI และไม่มีการส่งข้อความจริง"
+      : "Explore the interface concept of MSS Local LLM Lab. This is a read-only demonstration; no model is connected and no messages are sent.");
+    await editorial.scrollIntoViewIfNeeded();
     expect(await dialog(page).locator(".mss-workspace-body").evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath(`05-workspace-${width}x${height}-${locale}.png`) });
     if (width === 844) {

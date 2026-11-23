@@ -217,6 +217,9 @@
 .mss-workspace-context dt { color: #1b4562; font-size: .72rem; font-weight: 700; }
 .mss-workspace-context dd { margin: 0; color: #425d72; font-size: .76rem; line-height: 1.35; }
 .mss-workspace-review { margin: .35rem 0 0; color: #4f6578; font-size: .82rem; line-height: 1.45; }
+.mss-workspace-editorial { margin-top: 1rem; padding-top: .75rem; border-top: 1px solid var(--workspace-line); text-align: left; }
+.mss-workspace-editorial h3 { margin: 0 0 .3rem; color: var(--workspace-navy); font-size: .85rem; font-weight: 600; line-height: 1.4; }
+.mss-workspace-editorial p { max-width: 60ch; margin: 0; color: var(--workspace-muted); font-size: .85rem; line-height: 1.55; }
 
 @media (max-width: 580px) {
   .mss-workspace { width: calc(100% - 1rem); height: calc(100dvh - 1.25rem); border-radius: .95rem; }

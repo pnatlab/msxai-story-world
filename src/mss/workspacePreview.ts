@@ -26,6 +26,8 @@ const COPY = {
     guardrails: "Guardrails",
     guardrailsValue: "Guardrails off",
     review: "Local AI draft. Review before relying on it.",
+    editorialTitle: "Workspace Preview",
+    editorialDescription: "Explore the interface concept of MSS Local LLM Lab. This is a read-only demonstration; no model is connected and no messages are sent.",
   },
   th: {
     preview: "ตัวอย่าง",
@@ -49,6 +51,8 @@ const COPY = {
     guardrails: "กรอบกำกับ",
     guardrailsValue: "ยังไม่ได้ใช้กรอบกำกับ",
     review: "คำตอบจาก AI ในเครื่องเป็นฉบับร่าง ควรตรวจสอบก่อนนำไปใช้",
+    editorialTitle: "ตัวอย่างพื้นที่ทำงาน",
+    editorialDescription: "สำรวจแนวคิดหน้าตาของ MSS Local LLM Lab ผ่านการสาธิตแบบอ่านอย่างเดียว โดยไม่มีการเชื่อมต่อโมเดล AI และไม่มีการส่งข้อความจริง",
   },
 } as const;
 
@@ -122,6 +126,10 @@ export class WorkspacePreview {
               </dl>
             </section>
             <p class="mss-workspace-review" data-mss-copy="review"></p>
+            <footer class="mss-workspace-editorial">
+              <h3 data-mss-copy="editorialTitle"></h3>
+              <p data-mss-copy="editorialDescription"></p>
+            </footer>
           </div>
         </div>
       </div>
