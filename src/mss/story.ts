@@ -8,6 +8,8 @@ export const MSS_COPY = {
     title: "Above the Mist",
     workspace: "Human–AI Workspace",
     scroll: "Scroll to follow the light",
+    orb: "Open MSS workspace preview",
+    orbCaption: "Workspace preview",
     chapters: "Story chapters",
     phases: [
       ["Before the Light", "Every system begins with an intention."],
@@ -23,6 +25,8 @@ export const MSS_COPY = {
     title: "เหนือทะเลหมอก",
     workspace: "พื้นที่ทำงานร่วมระหว่างมนุษย์กับ AI",
     scroll: "เลื่อนเพื่อเดินทางไปกับแสง",
+    orb: "เปิดตัวอย่างพื้นที่ทำงาน MSS",
+    orbCaption: "ตัวอย่างพื้นที่ทำงาน",
     chapters: "ช่วงของเรื่องราว",
     phases: [
       ["ก่อนแสงแรก", "ทุกระบบเริ่มต้นจากเจตนา"],

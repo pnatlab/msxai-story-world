@@ -45,7 +45,7 @@ test("built MSS renders four chapters with readable controls across seven viewpo
         return {
           overflow: destination.scrollWidth > innerWidth || document.documentElement.scrollWidth > innerWidth,
           editorialFits: editorial.bottom <= frame.bottom + 1 && editorial.top >= header.bottom - 1,
-          controlsFit: [...destination.querySelectorAll("button")].every(button => {
+          controlsFit: [...destination.querySelectorAll(".mss-frame button")].every(button => {
             const box = button.getBoundingClientRect();
             return box.top >= frame.top && box.bottom <= frame.bottom + 1 && box.left >= 0 && box.right <= innerWidth && box.height >= 44;
           }),

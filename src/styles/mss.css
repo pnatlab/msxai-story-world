@@ -5,6 +5,7 @@
 .mss-destination { position: relative; z-index: 2; height: 100%; color: #f6f7f7; }
 .mss-scroll { height: 100%; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #7995a4 transparent; overflow-anchor: none; }
 .mss-scroll:focus-visible { outline: 2px solid #f6df9b; outline-offset: -4px; }
+.mss-destination:not([data-workspace="idle"]) .mss-scroll { overflow-y: hidden; }
 .mss-runway { height: 400%; }
 .mss-frame {
   position: sticky; inset-block-start: 0; height: 100svh;
@@ -44,6 +45,23 @@
 .mss-chapters span { width: 9px; height: 9px; border-radius: 50%; border: 1px solid #d5e5ec; }
 .mss-chapters button[aria-current] span { background: #f2e1c3; border-color: #f2e1c3; }
 .mss-chapters button:hover span { box-shadow: 0 0 0 4px #dcebf140; }
+.mss-orb {
+  position: absolute; left: var(--orb-x, 63%); top: var(--orb-y, 43%);
+  width: 52px; height: 52px; transform: translate(-50%, -50%); border-radius: 50%;
+  border: 1px solid transparent; background: transparent; color: #eefaff; cursor: pointer; touch-action: pan-y;
+}
+.mss-destination[data-renderer="fallback"] .mss-orb {
+  background: radial-gradient(circle, #e0faffdd 3%, #5dd9fbbb 17%, #2484b65c 36%, transparent 68%);
+}
+.mss-orb:hover { border-color: #b5eaf5a0; }
+.mss-orb:focus-visible { outline-color: #bdecfa; outline-offset: 3px; }
+.mss-orb-caption {
+  position: absolute; left: 50%; top: calc(100% + 1px); transform: translateX(-50%);
+  padding: 4px 8px; border-radius: 5px; color: #eff9fd; background: #102538e8;
+  white-space: nowrap; font-size: .72rem; line-height: 1.35; cursor: inherit;
+}
+.mss-destination[data-workspace="revealing"] .mss-orb { border-color: transparent; outline: none; }
+.mss-destination[data-workspace="revealing"] .mss-orb-caption { visibility: hidden; }
 @media (max-width: 650px) {
   .mss-frame { grid-template: auto 1fr auto auto / minmax(0, 1fr); gap: 8px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
   .mss-frame::before { background: linear-gradient(180deg, #071321ed, #071321a0 13%, transparent 30%, transparent 53%, #071321da 78%, #071321 100%); }
@@ -52,6 +70,7 @@
   .mss-identity p { display: grid; }
   .mss-identity h1 { margin-top: 8px; }
   .mss-wayfinding { grid-area: 4 / 1; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; text-align: start; }
+  .mss-orb-caption { left: auto; right: -10px; transform: none; }
 }
 @media (max-height: 480px) and (orientation: landscape) {
   .mss-frame { padding-block: 10px 8px; gap: 6px 12px; }

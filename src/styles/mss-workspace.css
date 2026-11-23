@@ -1,0 +1,237 @@
+/* The dialog chrome belongs to Story World. The light workspace uses MSS's palette. */
+.mss-workspace {
+  --workspace-navy: #20344a;
+  --workspace-ink: #082b49;
+  --workspace-muted: #425d72;
+  --workspace-line: #d8ecf7;
+  width: min(66rem, calc(100% - 3rem));
+  height: min(44rem, calc(100dvh - 3rem));
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  color: var(--workspace-navy);
+  border: 1px solid #b6dfee;
+  border-radius: 1.2rem;
+  background: #f8fcff;
+  box-shadow: 0 1.25rem 4rem #06162582, 0 0 1.5rem #6ad5fb24;
+  color-scheme: light;
+}
+
+.mss-workspace[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.mss-workspace::backdrop { background: #08182599; }
+
+.mss-workspace-chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: .75rem;
+  padding: .5rem clamp(.75rem, 2vw, 1.55rem);
+  background: #eef8fe;
+  border-bottom: 1px solid var(--workspace-line);
+}
+
+.mss-workspace-disclosure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .3rem .55rem;
+  min-width: 0;
+}
+
+.mss-workspace-badge {
+  border: 1px solid #bcddea;
+  border-radius: 999px;
+  padding: .17rem .5rem;
+  color: #285c78;
+  background: #fcfeff;
+  font-size: .72rem;
+  font-weight: 650;
+}
+
+.mss-workspace-chrome p {
+  margin: 0;
+  color: var(--workspace-muted);
+  font-size: .8rem;
+  line-height: 1.4;
+}
+
+.mss-workspace-actions {
+  display: flex;
+  gap: .4rem;
+}
+
+.mss-workspace-actions button {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 44px;
+  padding: .35rem .75rem;
+  border: 1px solid #b8d7e8;
+  border-radius: .65rem;
+  background: #fff;
+  color: var(--workspace-ink);
+  white-space: nowrap;
+  font-size: .83rem;
+  font-weight: 640;
+  cursor: pointer;
+}
+
+.mss-workspace-close span:last-child { font-size: 1.1rem; line-height: 1; }
+.mss-workspace-actions .mss-workspace-return { background: transparent; }
+.mss-workspace-actions button:hover { border-color: #79b4d3; background: #e6f4ff; }
+.mss-workspace-actions button:focus-visible, .mss-workspace-body:focus-visible { outline: 2px solid #0b6e9f; outline-offset: 2px; }
+.mss-workspace-body:focus-visible { outline-offset: -3px; }
+
+.mss-workspace-body {
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: linear-gradient(180deg, #f8fcff 0%, #f4faff 45%, #fff 100%);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.mss-workspace-main {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, calc(50rem + clamp(2rem, 4.4vw, 4rem)));
+  min-height: 100%;
+  padding: clamp(.85rem, 3vw, 2rem) clamp(1rem, 2.2vw, 2rem) 1rem;
+  margin: 0 auto;
+}
+
+.mss-workspace-brand {
+  display: flex;
+  align-items: center;
+  gap: .68rem;
+  padding: .08rem 0 .5rem;
+  border-bottom: 1px solid #cfe4efd1;
+}
+
+.mss-workspace-brand img { flex: 0 0 auto; }
+.mss-workspace-brand h2 { margin: 0 0 .08rem; font-size: 1.04rem; line-height: 1.15; font-weight: 720; }
+.mss-workspace-brand p { margin: 0; color: #627b90; font-size: .77rem; font-weight: 560; line-height: 1.2; }
+
+.mss-workspace-persona {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .3rem .5rem;
+  margin: .4rem 0 .25rem;
+  padding: .15rem 0;
+}
+
+.mss-workspace-persona span {
+  color: #4f6578;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  font-size: .68rem;
+  font-weight: 720;
+}
+
+.mss-workspace-persona strong { color: var(--workspace-ink); font-size: .86rem; font-weight: 720; }
+.mss-workspace-welcome { margin-block: auto; padding-block: .75rem; }
+.mss-workspace-greeting { text-align: center; padding: 1rem .5rem 1.2rem; }
+.mss-workspace-greeting h3 { margin: 0 0 .45rem; font-size: clamp(1.25rem, 2.4vw, 1.75rem); font-weight: 650; line-height: 1.5; }
+.mss-workspace-greeting p { margin: 0; color: var(--workspace-muted); line-height: 1.6; }
+
+.mss-workspace-composer {
+  border: 1px solid var(--workspace-line);
+  border-radius: 18px;
+  padding: .4rem .52rem .42rem;
+  background: linear-gradient(135deg, #fff 0%, #fbfdff 100%);
+  box-shadow: 0 3px 10px #1f587909;
+}
+
+.mss-workspace-inputline { display: flex; align-items: center; gap: .3rem; }
+.mss-workspace-inputline input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  padding: .25rem .2rem;
+  background: transparent;
+  font: inherit;
+  color: var(--workspace-ink);
+}
+
+.mss-workspace-inputline input::placeholder { color: #5b7082; opacity: 1; }
+.mss-workspace-composer :disabled { cursor: default; opacity: 1; }
+
+.mss-workspace-send {
+  display: grid;
+  flex: 0 0 44px;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background-color: #dbeaf2;
+  color: #526e80;
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.mss-workspace-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .26rem;
+  margin-top: .28rem;
+  padding-top: .3rem;
+  border-top: 1px solid #d8ecf7a6;
+}
+
+.mss-workspace-tools button {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  min-height: 36px;
+  padding: .3rem .72rem;
+  border: 1px solid var(--workspace-line);
+  border-radius: 11px;
+  background: #f7fbfe;
+  color: var(--workspace-ink);
+  font-size: .8rem;
+  line-height: 1.2;
+}
+
+.mss-workspace-tools .mss-workspace-manage { border-color: #9ed3ea; background: #e8f6fd; color: #0f638b; }
+.mss-workspace-model { margin-left: auto; padding: .15rem .2rem; color: var(--workspace-ink); font-size: .8rem; font-weight: 600; text-align: right; }
+
+.mss-workspace-context {
+  margin: .42rem 0 .38rem;
+  padding: .38rem .56rem;
+  border: 1px solid var(--workspace-line);
+  border-radius: 12px;
+  background: #f8fcffc7;
+}
+
+.mss-workspace-context h3 { margin: 0 0 .38rem; color: #3d6178; font-size: .72rem; font-weight: 760; letter-spacing: .04em; text-transform: uppercase; }
+.mss-workspace-context dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem .65rem; margin: 0; }
+.mss-workspace-context dt { color: #1b4562; font-size: .72rem; font-weight: 700; }
+.mss-workspace-context dd { margin: 0; color: #425d72; font-size: .76rem; line-height: 1.35; }
+.mss-workspace-review { margin: .35rem 0 0; color: #4f6578; font-size: .82rem; line-height: 1.45; }
+
+@media (max-width: 580px) {
+  .mss-workspace { width: calc(100% - 1rem); height: calc(100dvh - 1.25rem); border-radius: .95rem; }
+  .mss-workspace-chrome { flex-wrap: wrap; gap: .3rem .48rem; }
+  .mss-workspace-chrome p { font-size: .74rem; }
+  .mss-workspace-actions { margin-left: auto; }
+  .mss-workspace-actions button { padding-inline: .55rem; }
+  .mss-workspace-composer { padding-inline: .44rem; border-radius: 17px; }
+  .mss-workspace-inputline input { font-size: .94rem; }
+  .mss-workspace-tools button { padding-inline: .43rem; }
+  .mss-workspace-model { flex: 1 1 7rem; }
+}
+
+@media (max-height: 500px) {
+  .mss-workspace { height: calc(100dvh - 1rem); }
+  .mss-workspace-main { padding-top: .6rem; }
+  .mss-workspace-greeting { padding-block: .32rem .6rem; }
+}

@@ -12,6 +12,7 @@ import type { MemoryId } from "../nts/content";
 import type { MindHomePresentation } from "../mindhome/MindHomePresentation";
 import type { ImageRect, MindHomeCondition } from "../mindhome/registration";
 import type { MssPresentation } from "../mss/MssPresentation";
+import { workspaceMotion } from "../mss/workspaceMotion";
 
 export interface SceneInspection {
   readonly rendererType: "WebGLRenderer";
@@ -53,6 +54,8 @@ export interface StorySceneOptions {
   readonly onNtsImageFailure?: (id: MemoryId) => void;
   readonly onNtsPresenceFailure?: () => void;
   readonly onMssVisual?: (ready: boolean) => void;
+  readonly onMssOrbPosition?: (x: number, y: number) => void;
+  readonly onMssWorkspaceRevealed?: () => void;
 }
 
 type NodeVisual = {
@@ -124,7 +127,15 @@ export class StoryScene {
   private mindhomeReturnCamera?: CameraState;
   private mindhomeReturnPortrait = false;
   private mss?: MssPresentation;
-  private mssVisit?: { progress: number; portrait: boolean; camera: CameraState; visual: boolean };
+  private mssVisit?: {
+    progress: number;
+    portrait: boolean;
+    camera: CameraState;
+    visual: boolean;
+    arrivedAt?: number;
+    revealAt?: number;
+    revealDone?: boolean;
+  };
   private contextLost = false;
 
   public constructor(private readonly container: HTMLElement, private readonly options: StorySceneOptions) {
@@ -312,6 +323,22 @@ export class StoryScene {
     this.requestRender();
   }
 
+  public revealMssWorkspace(): boolean {
+    const visit = this.mssVisit;
+    if (!visit) return false;
+    visit.revealAt = performance.now();
+    visit.revealDone = !visit.visual || this.contextLost || !this.active || this.reducedMotion;
+    this.requestRender();
+    return !visit.revealDone;
+  }
+
+  public resetMssWorkspaceReveal(): void {
+    if (!this.mssVisit || this.mssVisit.revealAt === undefined) return;
+    this.mssVisit.revealAt = undefined;
+    this.mssVisit.revealDone = false;
+    this.requestRender();
+  }
+
   public returnFromMss(): void {
     const visit = this.mssVisit;
     if (!visit) return;
@@ -336,6 +363,7 @@ export class StoryScene {
 
   private readonly onContextLost = (): void => {
     this.contextLost = true;
+    if (this.mssVisit?.revealAt !== undefined) this.mssVisit.revealDone = true;
     this.setMssVisual(false);
   };
 
@@ -954,13 +982,23 @@ export class StoryScene {
     if (!this.active || this.disposed) return;
     if (this.mssVisit) {
       if (!this.mss || this.contextLost) return;
+      const visit = this.mssVisit;
+      visit.arrivedAt ??= now;
+      const motion = workspaceMotion(now, visit.arrivedAt, visit.revealAt, this.reducedMotion || visit.revealDone === true);
       const width = Math.max(1, this.container.clientWidth), height = Math.max(1, this.container.clientHeight);
-      this.mss.update(this.mssVisit.progress, width / height, this.reducedMotion);
+      this.mss.update(visit.progress, width / height, this.reducedMotion, motion.reveal, motion.pulse);
       this.renderer.setScissorTest(false);
       this.renderer.setViewport(0, 0, width, height);
       this.renderer.render(this.mss.scene, this.mss.camera);
       this.renderCount++;
       this.setMssVisual(true);
+      const { x, y } = this.mss.orbPosition;
+      this.options.onMssOrbPosition?.(x * width, y * height);
+      if (motion.done && !visit.revealDone) {
+        visit.revealDone = true;
+        this.options.onMssWorkspaceRevealed?.();
+      }
+      if (motion.needsFrame) this.requestRender();
       return;
     }
     if (this.mindhomeActive) {

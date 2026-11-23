@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { MssAtmosphere } from "./atmosphere";
 import { createMssTerrain } from "./terrain";
 import { frameAt, phaseAt } from "./story";
+import { MssEnergyOrb } from "./energyOrb";
 
 const KEYFRAMES = [
   { at: 0, sky: "#101b3a", horizon: "#444f6e", fog: "#657693", shadow: "#283d59", sun: "#bca0b8", rock: "#353550", ambient: "#465879", glow: .31, stars: .22, level: 30, density: .95, haze: .94 },
@@ -20,6 +21,8 @@ export class MssPresentation {
   readonly camera = new THREE.PerspectiveCamera(44, 1, .5, 700);
   private readonly terrain = createMssTerrain();
   private readonly atmosphere = new MssAtmosphere();
+  private readonly orb = new MssEnergyOrb();
+  private readonly orbProjection = new THREE.Vector3();
   private readonly palette = colors.map(() => new THREE.Color());
   private readonly sunDirection = new THREE.Vector3();
   private readonly skyLightDirection = new THREE.Vector3();
@@ -30,21 +33,23 @@ export class MssPresentation {
   private frame = 0;
 
   constructor() {
-    this.scene.add(this.terrain.object, this.atmosphere.group);
+    this.scene.add(this.terrain.object, this.atmosphere.group, this.orb.group);
     this.scene.traverse(object => {
-      if (!(object instanceof THREE.Mesh)) return;
+      if (!(object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.Points)) return;
       this.geometries.add(object.geometry);
-      const material: THREE.Material = object.material;
-      this.materials.add(material);
-      if (material instanceof THREE.ShaderMaterial) {
-        for (const uniform of Object.values(material.uniforms)) {
-          if (uniform.value instanceof THREE.Texture) this.textures.add(uniform.value);
+      const materials: THREE.Material[] = Array.isArray(object.material) ? object.material : [object.material];
+      for (const material of materials) {
+        this.materials.add(material);
+        if (material instanceof THREE.ShaderMaterial) {
+          for (const uniform of Object.values(material.uniforms)) {
+            if (uniform.value instanceof THREE.Texture) this.textures.add(uniform.value);
+          }
         }
       }
     });
   }
 
-  update(progress: number, aspect: number, reducedMotion: boolean): void {
+  update(progress: number, aspect: number, reducedMotion: boolean, reveal: number, pulse: number): void {
     const t = frameAt(progress, reducedMotion);
     this.progress = progress;
     this.frame = t;
@@ -56,6 +61,9 @@ export class MssPresentation {
     this.camera.position.set(32 - approach * 13 + opening * 7, 39 - approach * 8 + opening * 15, 62 - approach * 53 + opening * 23 + portrait * 32);
     this.camera.lookAt(14 - portrait * 18, 24 - approach * 6, -120);
     this.camera.updateProjectionMatrix();
+    this.camera.updateMatrixWorld();
+    this.orb.update(reveal, pulse);
+    this.orbProjection.copy(this.orb.anchor).project(this.camera);
 
     const end = KEYFRAMES.findIndex(frame => frame.at >= t && frame.at > 0);
     const start = end - 1;
@@ -78,9 +86,15 @@ export class MssPresentation {
     });
   }
 
+  get orbPosition() {
+    const { x, y, z } = this.orbProjection;
+    return { x: (1 + x) / 2, y: (1 - y) / 2, z };
+  }
+
   get inspection() {
     return {
       progress: this.progress, phase: phaseAt(this.progress), frame: this.frame, cameraPosition: this.camera.position.toArray(),
+      orb: this.orbPosition,
       resources: { geometries: this.geometries.size, materials: this.materials.size, textures: this.textures.size },
     };
   }
@@ -88,6 +102,7 @@ export class MssPresentation {
   dispose(): void {
     this.terrain.dispose();
     this.atmosphere.dispose();
+    this.orb.dispose();
     this.scene.clear();
     this.geometries.clear();
     this.materials.clear();

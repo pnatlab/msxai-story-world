@@ -4,6 +4,7 @@ import "./styles/product-identity.css";
 import "./styles/nts.css";
 import "./styles/mindhome.css";
 import "./styles/mss.css";
+import "./styles/mss-workspace.css";
 import { MssView } from "./mss/MssView";
 import { MindHomeView } from "./mindhome/MindHomeView";
 import { closedMindHome, type MindHomeState } from "./mindhome/content";
@@ -152,6 +153,8 @@ stage.append(mindhomeView.element);
 const mssView = new MssView({
   return: returnFromMss, locale: locale => localeController.setLocale(locale),
   scroll: progress => scene?.scrollMss(progress),
+  reveal: () => scene?.revealMssWorkspace() ?? false,
+  dismiss: () => scene?.resetMssWorkspaceReveal(),
 });
 stage.append(mssView.element);
 
@@ -171,6 +174,8 @@ if (webglAvailable) {
       stage.classList.toggle("is-mss-webgl", ready);
       mssView.setWebgl(ready);
     },
+    onMssOrbPosition: (x, y) => mssView.setOrbPosition(x, y),
+    onMssWorkspaceRevealed: () => mssView.completeWorkspaceReveal(),
     onRender: () => {
       if (mindhomeState.active) { refreshMindHome(); return; }
       overlay.refreshLabels(); ecosystemView.refreshLabels(); ntsView.refreshAnchors(); advanceNutuensaiJourney(); advanceNts();
@@ -414,7 +419,7 @@ const onKeyDown = (event: KeyboardEvent): void => {
   if (event.key !== "Escape") return;
   if (mssActive) {
     event.preventDefault(); event.stopImmediatePropagation();
-    returnFromMss();
+    if (!mssView.dismissWorkspace()) returnFromMss();
     return;
   }
   if (mindhomeState.active) {
