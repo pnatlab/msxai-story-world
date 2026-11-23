@@ -1,0 +1,62 @@
+.living-ecosystem [data-ecosystem="visit-mss"] { min-height: 44px; }
+.story-stage.is-mss { block-size: 100svh; background: #101e2e; }
+.story-stage.is-mss:not(.is-mss-webgl) > .story-canvas { visibility: hidden; }
+.story-stage.is-mss > .story-canvas { pointer-events: none; }
+.mss-destination { position: relative; z-index: 2; height: 100%; color: #f6f7f7; }
+.mss-scroll { height: 100%; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #7995a4 transparent; overflow-anchor: none; }
+.mss-scroll:focus-visible { outline: 2px solid #f6df9b; outline-offset: -4px; }
+.mss-runway { height: 400%; }
+.mss-frame {
+  position: sticky; inset-block-start: 0; height: 100svh;
+  display: grid; grid-template: auto 1fr auto / minmax(0, 1fr) auto;
+  gap: 16px clamp(12px, 4vw, 54px); isolation: isolate;
+  padding: max(20px, env(safe-area-inset-top)) max(clamp(20px, 4.5vw, 74px), env(safe-area-inset-right))
+    max(clamp(24px, 5vh, 52px), env(safe-area-inset-bottom)) max(clamp(20px, 4.5vw, 74px), env(safe-area-inset-left));
+}
+.mss-frame::before {
+  content: ""; position: absolute; z-index: -1; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, #071321e0 0%, #07132180 8%, transparent 23%, transparent 57%, #071321af 81%, #071321f7 100%);
+}
+[data-mss-fallback] {
+  position: absolute; z-index: -2; inset: 0;
+  background: #202e44 url("../mss/above-the-mist.svg") center / cover no-repeat;
+}
+.mss-header { grid-area: 1 / 1 / 2 / -1; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.mss-identity { min-width: 0; text-shadow: 0 2px 12px #071321b0; }
+.mss-identity p { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 10px; margin: 0 0 4px; font-size: .78rem; color: #e6edf0; }
+.mss-identity p span:first-child { font-weight: 650; }
+.mss-identity p span + span { color: #c9d7df; }
+.mss-identity h1 { margin: 0; font-size: clamp(1.45rem, 3.2vw, 2.9rem); font-weight: 560; letter-spacing: -.035em; line-height: 1.14; }
+.mss-identity h1:focus { outline: none; }
+.mss-actions, .mss-languages { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+.mss-actions button { min-height: 44px; padding: 6px 12px; background: #0c2032ed; font-size: .8rem; }
+.mss-languages button { min-width: 44px; padding-inline: 6px; }
+.mss-actions button[aria-pressed="true"] { background: #30546b; border-color: #badce9; }
+.mss-editorial { grid-area: 3 / 1; align-self: end; min-width: 0; }
+.mss-phase h2 { margin: 0 0 .65em; color: #dcebf1; font-size: .79rem; letter-spacing: .13em; font-weight: 650; }
+.mss-phase p { margin: 0; max-width: 27ch; font-family: Georgia, "Thonburi", serif; font-size: clamp(1.65rem, 3.5vw, 3.65rem); line-height: 1.12; text-wrap: balance; text-shadow: 0 2px 18px #071321c0; }
+.mss-destination:lang(th) .mss-phase p { font-family: inherit; font-size: clamp(1.4rem, 2.75vw, 2.9rem); line-height: 1.35; }
+.mss-destination:lang(th) .mss-phase h2 { letter-spacing: .035em; }
+.mss-wayfinding { grid-area: 3 / 2; align-self: end; text-align: center; }
+.mss-wayfinding p { margin: 0; color: #e3edf2; font-size: .76rem; }
+.mss-chapters { display: flex; }
+.mss-chapters button { display: grid; place-items: center; border: 0; padding: 0; border-radius: 8px; background: transparent; width: 44px; min-height: 44px; cursor: pointer; }
+.mss-chapters span { width: 9px; height: 9px; border-radius: 50%; border: 1px solid #d5e5ec; }
+.mss-chapters button[aria-current] span { background: #f2e1c3; border-color: #f2e1c3; }
+.mss-chapters button:hover span { box-shadow: 0 0 0 4px #dcebf140; }
+@media (max-width: 650px) {
+  .mss-frame { grid-template: auto 1fr auto auto / minmax(0, 1fr); gap: 8px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .mss-frame::before { background: linear-gradient(180deg, #071321ed, #071321a0 13%, transparent 30%, transparent 53%, #071321da 78%, #071321 100%); }
+  .mss-actions { gap: 4px; flex-direction: column; align-items: flex-end; }
+  .mss-actions button { font-size: .73rem; }
+  .mss-identity p { display: grid; }
+  .mss-identity h1 { margin-top: 8px; }
+  .mss-wayfinding { grid-area: 4 / 1; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; text-align: start; }
+}
+@media (max-height: 480px) and (orientation: landscape) {
+  .mss-frame { padding-block: 10px 8px; gap: 6px 12px; }
+  .mss-identity h1 { font-size: 1.5rem; }
+  .mss-phase h2 { margin-bottom: .3em; }
+  .mss-phase p, .mss-destination:lang(th) .mss-phase p { font-size: clamp(1.2rem, 3.2vw, 1.65rem); }
+  .mss-chapters { justify-content: flex-end; }
+}

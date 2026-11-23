@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1">
+      <stop stop-color="#122844"/><stop offset=".5" stop-color="#618093"/><stop offset=".71" stop-color="#d4aca0"/><stop offset="1" stop-color="#728998"/>
+    </linearGradient>
+    <linearGradient id="stone" x1="0" x2=".8" y2="1">
+      <stop stop-color="#846f66"/><stop offset=".5" stop-color="#454e58"/><stop offset="1" stop-color="#233847"/>
+    </linearGradient>
+    <linearGradient id="cloud" x2=".12" y2="1">
+      <stop stop-color="#ded2cb"/><stop offset=".45" stop-color="#9daeb8"/><stop offset="1" stop-color="#465f76"/>
+    </linearGradient>
+    <filter id="soft" x="-.2" width="1.4" y="-.4" height="1.8">
+      <feGaussianBlur stdDeviation="24"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="900" fill="url(#sky)"/>
+  <path fill="#627583" d="M0 560L110 501 161 519 230 451 289 465 365 416 438 463 549 429 655 509 752 471 831 514 981 460 1045 462 1070 438 1144 451 1265 495 1390 480 1600 557V900H0Z"/>
+  <path fill="url(#stone)" d="M0 686L94 623 155 599 229 541 277 528 340 469 392 453 429 408 457 399 477 374 519 367 558 318 605 305 639 314 685 306 707 318 744 322 774 337 793 368 837 395 863 421 894 398 911 407 929 438 1006 473 1058 493 1115 532 1209 571 1281 641 1469 705V900H0Z"/>
+  <path fill="#af8d77" opacity=".39" d="m394 461 86-84 34-1 45-53 45-15 31 9 49-5-29 17-31 7-25 32-30 12-27 45-32 19 8-28-42 40-38 11 17-23zm282-94 52-32 46 11 18 24 46 30-39-10-8 10-39-21-41 23 15-22z"/>
+  <path fill="#1a3340" opacity=".65" d="m173 632 238-117 88-108-45 94-32 31-12 47-99 65zm404 61 21-112 60-48 41-109-14 107-44 54-9 56zm236-189 31-63 85 42 106 25 101 87-128-54-111 3z"/>
+  <path fill="url(#cloud)" filter="url(#soft)" d="M-40 735Q94 714 213 745T480 743Q537 690 657 715Q712 677 816 699Q905 625 1058 675Q1186 617 1247 631Q1302 601 1390 628Q1511 574 1640 593V950H-40Z"/>
+  <g fill="#d9dde0" opacity=".34" filter="url(#soft)">
+    <path d="M0 817Q154 753 295 807T620 783Q513 863 254 849T0 868Z"/>
+    <path d="M722 789Q897 668 1055 719T1600 683V738Q1432 753 1240 751T722 789Z"/>
+    <path d="M921 900Q1059 789 1223 828T1600 788V900Z"/>
+  </g>
+</svg>

@@ -3,6 +3,8 @@ import "./styles/foundational-opening.css";
 import "./styles/product-identity.css";
 import "./styles/nts.css";
 import "./styles/mindhome.css";
+import "./styles/mss.css";
+import { MssView } from "./mss/MssView";
 import { MindHomeView } from "./mindhome/MindHomeView";
 import { closedMindHome, type MindHomeState } from "./mindhome/content";
 import type { MindHomeCondition } from "./mindhome/registration";
@@ -47,6 +49,7 @@ const ecosystem = new LivingEcosystemController(STORY_WORLD_V0_1);
 const nutuensaiJourney = new NutuensaiStoryJourney();
 const nts = new NtsVisitController();
 let mindhomeState = closedMindHome();
+let mssActive = false;
 let mindhomeGeneration = 0;
 let mindhomeFallback = false;
 let mindhomeDomReady: MindHomeCondition | undefined;
@@ -60,7 +63,7 @@ const webglAvailable = supportsWebGL();
 if (!webglAvailable) nts.setDom(true);
 const feedback = (accepted: boolean): void => { if (accepted) interactionSound.playInteractionSound(); };
 const selectEcosystem = (id?: string): void => {
-  if (nutuensaiJourney.active || nts.active || mindhomeState.active) return;
+  if (nutuensaiJourney.active || nts.active || mindhomeState.active || mssActive) return;
   nutuensaiJourney.reset(); scene?.releaseNutuensaiJourneyFocus(); feedback(ecosystem.select(id));
 };
 let recognitionTimer: ReturnType<typeof setTimeout> | undefined;
@@ -112,6 +115,7 @@ const ecosystemView = new LivingEcosystemView(STORY_WORLD_V0_1, {
   project: (id) => scene?.projectNode(id),
   visitNts: () => enterNts(),
   visitMindHome: () => { void enterMindHome(); },
+  visitMss: enterMss,
 }, !webglAvailable);
 overlay.element.append(ecosystemView.element);
 const ntsView = new NtsView({
@@ -145,6 +149,11 @@ const mindhomeView = new MindHomeView({
   },
 });
 stage.append(mindhomeView.element);
+const mssView = new MssView({
+  return: returnFromMss, locale: locale => localeController.setLocale(locale),
+  scroll: progress => scene?.scrollMss(progress),
+});
+stage.append(mssView.element);
 
 if (webglAvailable) {
   scene = new StoryScene(stage, {
@@ -157,6 +166,11 @@ if (webglAvailable) {
     onClearSelection: () => selectEcosystem(),
     onNtsPresence: () => nts.introduce(), onNtsMemory: id => nts.select(id),
     onNtsImageFailure: id => ntsView.imageFailed(id), onNtsPresenceFailure: () => { ntsView.presenceFailed(); if (!scene?.projectNts()) nts.setDom(true); },
+    onMssVisual: ready => {
+      if (!mssActive) return;
+      stage.classList.toggle("is-mss-webgl", ready);
+      mssView.setWebgl(ready);
+    },
     onRender: () => {
       if (mindhomeState.active) { refreshMindHome(); return; }
       overlay.refreshLabels(); ecosystemView.refreshLabels(); ntsView.refreshAnchors(); advanceNutuensaiJourney(); advanceNts();
@@ -211,7 +225,7 @@ function startNutuensaiStory(source: NutuensaiStorySource, trigger: HTMLButtonEl
 }
 
 function startMindHomeStory(trigger: HTMLButtonElement): void {
-  if (destroyed || mindhomeState.active || nts.active || nutuensaiJourney.active || ecosystem.getState().open) return;
+  if (destroyed || mindhomeState.active || mssActive || nts.active || nutuensaiJourney.active || ecosystem.getState().open) return;
   mindhomeReturnToLanding = true;
   requestedReturnFocus = trigger;
   feedback(ecosystem.enter());
@@ -249,17 +263,43 @@ function continueNtsVisit(request: NtsVisitRequest): void {
 }
 
 function enterNts(): void {
-  if (destroyed || nts.active || mindhomeState.active || !ecosystem.getState().open || ecosystem.getState().selectedNodeId !== "nutuensai") return;
+  if (destroyed || nts.active || mindhomeState.active || mssActive || !ecosystem.getState().open || ecosystem.getState().selectedNodeId !== "nutuensai") return;
   scene?.focusNutuensaiJourney(true);
   feedback(nts.enter(prefersReducedMotion() || !scene));
 }
 
 function refreshSceneActivity(): void {
-  scene?.setActive(visible && (mindhomeState.active || nts.active || !(ecosystem.getState().open ? ecosystem.getState().listOpen : controller.getState().storyListOpen)));
+  scene?.setActive(visible && (mssActive || mindhomeState.active || nts.active || !(ecosystem.getState().open ? ecosystem.getState().listOpen : controller.getState().storyListOpen)));
+}
+
+function enterMss(): void {
+  const state = ecosystem.getState();
+  if (destroyed || mssActive || mindhomeState.active || nts.active || nutuensaiJourney.active || !state.open || state.selectedNodeId !== "mss") return;
+  mssActive = true;
+  overlay.element.inert = true;
+  overlay.element.hidden = true;
+  stage.classList.add("is-mss");
+  mssView.open();
+  feedback(true);
+  void scene?.enterMss();
+  refreshSceneActivity();
+}
+
+function returnFromMss(): void {
+  if (!mssActive) return;
+  mssActive = false;
+  mssView.close();
+  stage.classList.remove("is-mss", "is-mss-webgl");
+  scene?.returnFromMss();
+  overlay.element.inert = false;
+  overlay.element.hidden = false;
+  ecosystemView.render(ecosystem.getState());
+  ecosystemView.focusVisitMss();
+  refreshSceneActivity();
 }
 
 async function enterMindHome(): Promise<void> {
-  if (destroyed || mindhomeState.active || nts.active || nutuensaiJourney.active || !ecosystem.getState().open || ecosystem.getState().selectedNodeId !== "mindhome") return;
+  if (destroyed || mindhomeState.active || mssActive || nts.active || nutuensaiJourney.active || !ecosystem.getState().open || ecosystem.getState().selectedNodeId !== "mindhome") return;
   const generation = ++mindhomeGeneration;
   mindhomeFallback = !scene; mindhomeDomReady = undefined; mindhomeDomFailed = undefined;
   mindhomeState = { ...closedMindHome(), active: true, phase: "loading" };
@@ -368,10 +408,15 @@ const stopVisibilityObserver = observeDocumentVisibility((nextVisible) => {
   if (nextVisible) advanceNutuensaiJourney();
   if (nextVisible) advanceNts();
 });
-const unsubscribeLocale = localeController.subscribe((locale) => { overlay.setLocale(locale); ecosystemView.setLocale(locale); ntsView.setLocale(locale); mindhomeView.setLocale(locale); opening.setLocale(locale); });
+const unsubscribeLocale = localeController.subscribe((locale) => { overlay.setLocale(locale); ecosystemView.setLocale(locale); ntsView.setLocale(locale); mindhomeView.setLocale(locale); mssView.setLocale(locale); opening.setLocale(locale); });
 
 const onKeyDown = (event: KeyboardEvent): void => {
   if (event.key !== "Escape") return;
+  if (mssActive) {
+    event.preventDefault(); event.stopImmediatePropagation();
+    returnFromMss();
+    return;
+  }
   if (mindhomeState.active) {
     event.preventDefault(); event.stopImmediatePropagation();
     if (mindhomeState.invitation !== "quiet") { scene?.dismissMindHomeInvitation(); refreshMindHome(); }
@@ -399,6 +444,7 @@ function destroy(): void {
   unsubscribeNutuensaiJourney(); nutuensaiJourney.dispose();
   unsubscribeNts(); nts.dispose(); ntsView.dispose();
   ++mindhomeGeneration; mindhomeView.dispose();
+  mssView.dispose();
   opening.dispose();
   unsubscribe();
   unsubscribeEcosystem();

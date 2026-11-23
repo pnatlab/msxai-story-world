@@ -6,6 +6,7 @@ import type { StoryWorldDefinition } from "../world/world.schema";
 import { productIdentity, PRODUCT_COPY } from "../world/productIdentity";
 import { NTS_COPY } from "../nts/content";
 import { MINDHOME_COPY } from "../mindhome/content";
+import { MSS_COPY } from "../mss/story";
 
 export class LivingEcosystemView {
   readonly element = document.createElement("section");
@@ -19,6 +20,7 @@ export class LivingEcosystemView {
     project: (id: string) => { x: number; y: number; visible: boolean } | undefined;
     visitNts: () => void;
     visitMindHome: () => void;
+    visitMss: () => void;
   }, private readonly fallback: boolean) {
     this.element.className = "living-ecosystem";
     this.element.hidden = true;
@@ -47,6 +49,8 @@ export class LivingEcosystemView {
     visit.addEventListener("click", actions.visitNts); this.element.querySelector(".ecosystem-description")!.after(visit);
     const mindhome = document.createElement("button"); mindhome.type = "button"; mindhome.className = "quiet-button"; mindhome.dataset.ecosystem = "visit-mindhome"; mindhome.hidden = true;
     mindhome.addEventListener("click", actions.visitMindHome); visit.after(mindhome);
+    const mss = document.createElement("button"); mss.type = "button"; mss.className = "quiet-button"; mss.dataset.ecosystem = "visit-mss"; mss.hidden = true;
+    mss.addEventListener("click", actions.visitMss); mindhome.after(mss);
   }
   setJourney(state: NutuensaiJourneyState): void { this.journey = state; this.refreshJourney(); }
   focusNutuensaiArrival(): void {
@@ -62,6 +66,11 @@ export class LivingEcosystemView {
     if (!visit.hidden) { visit.focus({ preventScroll: true }); visit.scrollIntoView({ block: "nearest" }); }
     else this.focusNutuensaiArrival();
   }
+  focusVisitMss(): void {
+    const visit = this.element.querySelector<HTMLButtonElement>('[data-ecosystem="visit-mss"]')!;
+    if (!visit.hidden) { visit.focus({ preventScroll: true }); visit.scrollIntoView({ block: "nearest" }); }
+    else this.focusHeading();
+  }
   private refreshJourney(): void {
     const state = this.journey, copy = NUTUENSAI_JOURNEY_COPY[this.locale];
     const active = Boolean(state && ["requested", "travelling", "recognition"].includes(state.phase));
@@ -74,6 +83,9 @@ export class LivingEcosystemView {
     const mindhome = this.element.querySelector<HTMLButtonElement>('[data-ecosystem="visit-mindhome"]')!;
     mindhome.hidden = this.state.selectedNodeId !== "mindhome" || active;
     mindhome.textContent = MINDHOME_COPY[this.locale].visit;
+    const mss = this.element.querySelector<HTMLButtonElement>('[data-ecosystem="visit-mss"]')!;
+    mss.hidden = this.state.selectedNodeId !== "mss" || active;
+    mss.textContent = MSS_COPY[this.locale].visit;
     this.element.querySelectorAll<HTMLButtonElement>(".ecosystem-node, .ecosystem-related button, [data-ecosystem=clear]").forEach(button => { button.disabled = active; });
     this.element.querySelector<HTMLElement>(".ecosystem-detail h2")!.tabIndex = -1;
   }

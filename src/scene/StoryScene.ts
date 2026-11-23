@@ -11,6 +11,7 @@ import type { NtsState } from "../nts/visitState";
 import type { MemoryId } from "../nts/content";
 import type { MindHomePresentation } from "../mindhome/MindHomePresentation";
 import type { ImageRect, MindHomeCondition } from "../mindhome/registration";
+import type { MssPresentation } from "../mss/MssPresentation";
 
 export interface SceneInspection {
   readonly rendererType: "WebGLRenderer";
@@ -37,6 +38,7 @@ export interface SceneInspection {
   readonly livingEcosystem: LivingEcosystemPresentation["inspection"];
   readonly nts?: NtsPresentation["inspection"];
   readonly mindhome?: MindHomePresentation["inspection"] & { imageBounds?: ImageRect };
+  readonly mss?: MssPresentation["inspection"] & { drawCalls: number };
   readonly gpu: { geometries: number; textures: number };
 }
 
@@ -50,6 +52,7 @@ export interface StorySceneOptions {
   readonly onNtsMemory?: (id: MemoryId) => void;
   readonly onNtsImageFailure?: (id: MemoryId) => void;
   readonly onNtsPresenceFailure?: () => void;
+  readonly onMssVisual?: (ready: boolean) => void;
 }
 
 type NodeVisual = {
@@ -120,6 +123,9 @@ export class StoryScene {
   private mindhomeBounds?: () => ImageRect;
   private mindhomeReturnCamera?: CameraState;
   private mindhomeReturnPortrait = false;
+  private mss?: MssPresentation;
+  private mssVisit?: { progress: number; portrait: boolean; camera: CameraState; visual: boolean };
+  private contextLost = false;
 
   public constructor(private readonly container: HTMLElement, private readonly options: StorySceneOptions) {
     this.reducedMotion = options.reducedMotion;
@@ -159,6 +165,8 @@ export class StoryScene {
     this.renderer.domElement.addEventListener("pointerdown", this.onPointerDown);
     this.renderer.domElement.addEventListener("pointermove", this.onPointerMove);
     this.renderer.domElement.addEventListener("pointerup", this.onPointerUp);
+    this.renderer.domElement.addEventListener("webglcontextlost", this.onContextLost);
+    this.renderer.domElement.addEventListener("webglcontextrestored", this.onContextRestored);
     this.resize();
   }
 
@@ -236,7 +244,7 @@ export class StoryScene {
 
   /** Reuse this renderer, while the photograph keeps its own fixed image-space camera. */
   public async enterMindHome(bounds: () => ImageRect): Promise<boolean> {
-    if (!this.ecosystem.isOpen || this.nts || this.mindhomeActive) return false;
+    if (!this.ecosystem.isOpen || this.nts || this.mindhomeActive || this.mssVisit) return false;
     const generation = ++this.mindhomeGeneration;
     this.mindhomeActive = true; this.mindhomeBounds = bounds;
     this.mindhomeReturnPortrait = this.lastPortrait;
@@ -276,8 +284,68 @@ export class StoryScene {
     this.mindhomeReturnCamera = undefined; this.requestRender();
   }
 
+  /** The cinematic camera is local to this pass. The ecosystem camera is suspended in place. */
+  public async enterMss(): Promise<void> {
+    if (!this.ecosystem.isOpen || this.nts || this.mindhomeActive || this.mssVisit) return;
+    const camera: CameraState = {
+      id: "mss-return", position: this.camera.position.toArray(), target: this.director.target.toArray(),
+      fov: this.camera.fov, durationMs: 0, allowManualControl: true,
+    };
+    const visit = { progress: 0, portrait: this.lastPortrait, camera, visual: false };
+    this.mssVisit = visit;
+    this.allowManualControl = false;
+    this.director.moveTo({ ...camera, allowManualControl: false }, true);
+    this.pointerStart = undefined;
+    try {
+      const { MssPresentation } = await import("../mss/MssPresentation");
+      if (this.disposed || this.mssVisit !== visit) return;
+      this.mss = new MssPresentation();
+      this.requestRender();
+    } catch {
+      if (this.mssVisit === visit) this.setMssVisual(false);
+    }
+  }
+
+  public scrollMss(progress: number): void {
+    if (!this.mssVisit || this.mssVisit.progress === progress) return;
+    this.mssVisit.progress = progress;
+    this.requestRender();
+  }
+
+  public returnFromMss(): void {
+    const visit = this.mssVisit;
+    if (!visit) return;
+    this.mssVisit = undefined;
+    this.mss?.dispose();
+    this.mss = undefined;
+    this.ecosystem.resize(this.lastPortrait);
+    const pose = visit.portrait === this.lastPortrait ? visit.camera : ecosystemCamera(this.lastPortrait);
+    this.allowManualControl = true;
+    this.director.moveTo(pose, true);
+    this.applyViewOffset();
+    this.fieldMotionUntil = 0;
+    this.manualInteractionUntil = 0;
+    this.requestRender();
+  }
+
+  private setMssVisual(ready: boolean): void {
+    if (!this.mssVisit || this.mssVisit.visual === ready) return;
+    this.mssVisit.visual = ready;
+    this.options.onMssVisual?.(ready);
+  }
+
+  private readonly onContextLost = (): void => {
+    this.contextLost = true;
+    this.setMssVisual(false);
+  };
+
+  private readonly onContextRestored = (): void => {
+    this.contextLost = false;
+    this.requestRender();
+  };
+
   public async enterNts(): Promise<void> {
-    if (!this.ecosystem.isOpen || this.nts || this.mindhomeActive) return;
+    if (!this.ecosystem.isOpen || this.nts || this.mindhomeActive || this.mssVisit) return;
     const generation = ++this.ntsGeneration;
     this.ntsLoadFailed = false;
     this.allowManualControl = false; this.director.controls.enabled = false;
@@ -375,7 +443,7 @@ export class StoryScene {
       if (mesh.geometry) geometries.add(mesh.geometry);
       if (mesh.material) (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).forEach((m) => materials.add(m));
     };
-    this.scene.traverse(countResources); this.mindhome?.scene.traverse(countResources);
+    this.scene.traverse(countResources); this.mindhome?.scene.traverse(countResources); this.mss?.scene.traverse(countResources);
     this.relationshipVisuals.forEach(({ group }) => group.traverse((object) => {
       if ((object as THREE.Mesh).isMesh) transportObjectCount += 1;
     }));
@@ -406,6 +474,7 @@ export class StoryScene {
       livingEcosystem: this.ecosystem.inspection,
       nts: this.nts?.inspection,
       mindhome: this.mindhomeInspection,
+      mss: this.mss ? { ...this.mss.inspection, drawCalls: this.renderer.info.render.calls } : undefined,
       gpu: { geometries: this.renderer.info.memory.geometries, textures: this.renderer.info.memory.textures },
     };
   }
@@ -415,11 +484,14 @@ export class StoryScene {
     this.disposed = true;
     ++this.ntsGeneration; this.nts?.dispose(); this.nts = undefined;
     ++this.mindhomeGeneration; this.mindhome?.dispose(); this.mindhome = undefined;
+    this.mssVisit = undefined; this.mss?.dispose(); this.mss = undefined;
     this.setActive(false);
     this.resizeObserver.disconnect();
     this.renderer.domElement.removeEventListener("pointerdown", this.onPointerDown);
     this.renderer.domElement.removeEventListener("pointermove", this.onPointerMove);
     this.renderer.domElement.removeEventListener("pointerup", this.onPointerUp);
+    this.renderer.domElement.removeEventListener("webglcontextlost", this.onContextLost);
+    this.renderer.domElement.removeEventListener("webglcontextrestored", this.onContextRestored);
     this.director.dispose();
     this.ecosystem.dispose();
     const disposedGeometry = new Set<THREE.BufferGeometry>();
@@ -880,6 +952,17 @@ export class StoryScene {
   private readonly renderFrame = (now: number): void => {
     this.animationFrame = undefined;
     if (!this.active || this.disposed) return;
+    if (this.mssVisit) {
+      if (!this.mss || this.contextLost) return;
+      const width = Math.max(1, this.container.clientWidth), height = Math.max(1, this.container.clientHeight);
+      this.mss.update(this.mssVisit.progress, width / height, this.reducedMotion);
+      this.renderer.setScissorTest(false);
+      this.renderer.setViewport(0, 0, width, height);
+      this.renderer.render(this.mss.scene, this.mss.camera);
+      this.renderCount++;
+      this.setMssVisual(true);
+      return;
+    }
     if (this.mindhomeActive) {
       this.director.controls.enabled = false;
       const animate = this.mindhome?.update(now) ?? false;
@@ -959,8 +1042,8 @@ export class StoryScene {
     this.camera.updateProjectionMatrix();
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.setSize(width, height, false);
-    if (this.mindhomeActive) {
-      // The world camera is suspended; registration follows the actual DOM image stage.
+    if (this.mindhomeActive || this.mssVisit) {
+      // Destination projection is independent of the suspended ecosystem camera.
     } else if (this.nts?.active) {
       this.camera.clearViewOffset(); this.nts.resize(portrait, this.reducedMotion);
     } else if (this.ecosystem.isOpen && portrait !== this.lastPortrait) {
@@ -986,12 +1069,12 @@ export class StoryScene {
   }
 
   private readonly onPointerDown = (event: PointerEvent): void => {
-    if (this.mindhomeActive) return;
+    if (this.mindhomeActive || this.mssVisit) return;
     this.pointerStart = new THREE.Vector2(event.clientX, event.clientY);
   };
 
   private readonly onPointerMove = (event: PointerEvent): void => {
-    if (this.mindhomeActive) return;
+    if (this.mindhomeActive || this.mssVisit) return;
     if (this.ntsState?.phase !== "closed" && this.ntsState) return;
     if (this.director.controls.enabled) {
       this.manualInteractionUntil = performance.now() + 260;
@@ -1011,7 +1094,7 @@ export class StoryScene {
   };
 
   private readonly onPointerUp = (event: PointerEvent): void => {
-    if (this.mindhomeActive) return;
+    if (this.mindhomeActive || this.mssVisit) return;
     const start = this.pointerStart;
     this.pointerStart = undefined;
     if (!start || start.distanceTo(new THREE.Vector2(event.clientX, event.clientY)) > 8 || this.director.isTransitioning) return;
